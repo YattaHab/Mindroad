@@ -1,12 +1,18 @@
 import { Star } from "lucide-react";
 import { useState } from "react";
 
-export default function StarRating({ maxRating }) {
-  const [rating, setRating] = useState(0);
+export default function StarRating({
+  maxRating = 5,
+  onRate,
+  initialRating = 0,
+}) {
+  const [rating, setRating] = useState(initialRating);
   const [hoverRating, setHoverRating] = useState(0);
 
   const handleClick = (index) => {
-    setRating(index + 1);
+    const newRating = index + 1;
+    setRating(newRating);
+    if (onRate) onRate(newRating);
   };
 
   const handleMouseEnter = (index) => {
@@ -16,6 +22,7 @@ export default function StarRating({ maxRating }) {
   const handleMouseLeave = () => {
     setHoverRating(0);
   };
+
   return (
     <div className="flex items-center gap-4">
       <div className="flex gap-1">
@@ -26,13 +33,19 @@ export default function StarRating({ maxRating }) {
             onClick={() => handleClick(i)}
             onMouseEnter={() => handleMouseEnter(i)}
             onMouseLeave={handleMouseLeave}
-            className={`text-yellow-500 block cursor-pointer transition-all duration-200 ${i < (hoverRating || rating) ? "fill-yellow-500 text-yellow-500" : "text-gray-300"}`}
+            className={`cursor-pointer transition-all duration-200 ${
+              i < (hoverRating || rating)
+                ? "fill-yellow-500 text-yellow-500"
+                : "text-gray-300"
+            }`}
           />
         ))}
       </div>
-      <p className="text-yellow-500 text-lg font-semibold">
-        {hoverRating || rating || ""}
-      </p>
+      {(hoverRating || rating) > 0 && (
+        <p className="text-yellow-500 text-lg font-semibold">
+          {hoverRating || rating}
+        </p>
+      )}
     </div>
   );
 }

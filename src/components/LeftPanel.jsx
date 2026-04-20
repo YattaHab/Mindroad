@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import backGround from "../assets/container.jpg";
 import logo from "../assets/logo.png";
 import profile from "../assets/profile.jpg";
@@ -29,14 +30,13 @@ export default function LeftPanel() {
       {/* content */}
       <div className=" relative z-10 flex flex-col justify-between h-full p-10">
         {/* logo */}
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-1">
           <img src={logo} alt="logo" className="w-8 h-8" />
           <div>
             <span className="text-white font-bold text-xl">Mind</span>
             <span className="text-secondary font-bold text-xl">Road</span>
           </div>
-        </div>
-
+        </Link>
         {/* main content */}
         <div className="mt-8 flex flex-col gap-6 mt-auto mb-auto">
           {/* badge */}

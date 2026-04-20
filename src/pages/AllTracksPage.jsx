@@ -1,31 +1,41 @@
 import Navbar from "../components/Navbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Flame, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer";
 
-import profile from "../assets/profile.jpg";
-
-import { mockTracks } from "../data/mockTracks";
+import { getCurrentUser, isLoggedIn } from "../services/authService";
 
 function AllTracksPage() {
   const [search, setSearch] = useState("");
-  const filteredTracks = mockTracks.filter((track) =>
-    track.name.toLowerCase().includes(search.toLowerCase()),
+
+  const [tracks, setTracks] = useState([]);
+  useEffect(() => {
+    fetch("https://mindroad.runasp.net/api/Track")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log(data);
+        setTracks(data.items);
+      })
+      .catch((err) => console.log(err));
+  }, []);
+
+  const filteredTracks = tracks.filter((track) =>
+    (track.trackName || "").toLowerCase().includes(search.toLowerCase()),
   );
+
+  const loggedIn = isLoggedIn();
+  const user = getCurrentUser();
 
   return (
     <div>
       <div className="bg-[#0a101d]">
-        <Navbar
-          isLoggedIn={false}
-          user={{ name: "Toka Moustafa", image: profile }}
-        />
+        <Navbar isLoggedIn={loggedIn} user={user} />
         {/* hero */}
         <section className="py-20 px-10">
           <div className="text-[#ffb900] flex items-center gap-2 font-semibold">
             <Flame size={16} className="fill-[#ffb900]" />
-            <h2 className="">{mockTracks.length} learning tracks available</h2>
+            <h2 className="">{tracks.length} learning tracks available</h2>
           </div>
           <h1 className="text-5xl text-white mt-8 font-bold">
             Find Your Learning Track
@@ -60,23 +70,23 @@ function AllTracksPage() {
           <div className="grid grid-cols-3 gap-10 mb-10 mt-8">
             {filteredTracks.map((track) => (
               <div
-                key={track.track_id}
+                key={track.trackId}
                 className="bg-white rounded-xl overflow-hidden flex flex-col h-full"
               >
                 {/* card top */}
                 <img
-                  src={track.icon_url}
-                  alt={track.name}
+                  src={track.trackIcon}
+                  alt={track.trackName}
                   className="w-full h-40 object-cover"
                 />
                 {/* content */}
                 <div className="p-4 flex flex-col gap-3 flex-1">
-                  <h2 className="font-bold text-lg">{track.name}</h2>
+                  <h2 className="font-bold text-lg">{track.trackName}</h2>
                   <p className="text-gray-500 text-sm flex-1 leading-relaxed">
-                    {track.description}
+                    {track.trackDescription}
                   </p>
                   <Link
-                    to={`/tracks/${track.track_id}`}
+                    to={`/tracks/${track.trackId}`}
                     className="bg-primary text-white font-semibold py-2 rounded-lg text-center hover:opacity-90 transition duration-300"
                   >
                     Start Track

@@ -1,9 +1,71 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import api from "../services/api";
+import { saveAuth } from "../services/authService";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert("Please enter email and password");
+      return;
+    }
+    if (password.length < 8) {
+      alert("Password must be 8+ characters");
+      return;
+    }
+    try {
+      const res = await api.post("/api/Account/login", {
+        Email: email,
+        Password: password,
+        RememberMe: rememberMe,
+      });
+
+      const data = res.data; // axios uses .data
+
+      console.log("LOGIN RESPONSE", data);
+
+      const token = data.token || data.jwtToken;
+
+      if (!token) {
+        alert("No token received");
+        return;
+      }
+      let name = email.split("@")[0]; // default fallback
+
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload.name) {
+          name = payload.name;
+        }
+      } catch {
+        console.log("Token decode failed");
+      }
+
+      saveAuth(token, {
+        email,
+        name,
+        image: null,
+      });
+      alert("Login successful");
+
+      navigate("/");
+    } catch (err) {
+      console.log("❌ FULL ERROR:", err.response);
+      console.log("❌ ERROR DATA:", err.response?.data);
+      console.log("❌ ERROR STATUS:", err.response?.status);
+      console.log(err);
+      alert(err.response?.data?.message || "Login failed");
+    }
+  };
+
   return (
     <div className="">
       {/* heading */}
@@ -32,8 +94,10 @@ export default function SignInForm() {
 
           <input
             type="email"
-            placeholder="you@example.com"
             id="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="outline-none"
           />
         </div>
@@ -42,7 +106,7 @@ export default function SignInForm() {
       {/* pass */}
       <div className="mb-5">
         <div className="flex justify-between mb-1">
-          <label htmlFor="email" className="block font-semibold mb-1">
+          <label htmlFor="password" className="block font-semibold mb-1">
             Password
           </label>
           <Link to="forgot-password" className="text-primary">
@@ -54,8 +118,10 @@ export default function SignInForm() {
             <Lock size={16} className="text-gray-400" />
             <input
               type={showPassword ? "text" : "password"}
+              id="password"
               placeholder="••••••••"
-              id="email"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="outline-none"
             />
           </div>
@@ -71,14 +137,22 @@ export default function SignInForm() {
 
       {/* remember me */}
       <div className="flex items-center gap-2 mb-5">
-        <input type="checkbox" id="remember" />
+        <input
+          type="checkbox"
+          id="remember"
+          checked={rememberMe}
+          onChange={(e) => setRememberMe(e.target.checked)}
+        />
         <label htmlFor="remember" className="text-gray-500">
           Remember me for 30 days
         </label>
       </div>
 
       {/* sign in btn */}
-      <button className="mb-5 bg-primary text-white py-2.5 rounded-xl w-full">
+      <button
+        onClick={handleLogin}
+        className="mb-5 bg-primary text-white py-2.5 rounded-xl w-full"
+      >
         Sign in →
       </button>
 

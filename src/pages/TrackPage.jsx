@@ -1,6 +1,8 @@
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 import { useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
+import Container from "../assets/Container.png";
 import {
   BookOpen,
   Clock,
@@ -13,21 +15,45 @@ import {
   Bolt,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getCurrentUser } from "../services/authService";
+import { isLoggedIn } from "../services/authService";
 
-import { mockTracks, mockRoadmaps } from "../data/mockTracks";
-import Footer from "../components/Footer";
+// import { mockTracks, mockRoadmaps } from "../data/mockTracks";
 
-const isLoggedIn = false;
-
+// const loggedIn = isLoggedIn();
 function TrackPage() {
   const { trackId } = useParams();
   const [activeTab, setActiveTab] = useState("overview");
+  const [roadmaps, setRoadmaps] = useState([]);
 
-  const track = mockTracks.find((t) => t.track_id === parseInt(trackId));
-  const roadmaps = mockRoadmaps.filter((r) => r.track_id === parseInt(trackId));
+  const [track, setTrack] = useState(null);
 
+  useEffect(() => {
+    fetch(`https://mindroad.runasp.net/api/Track`)
+      .then((res) => res.json())
+      .then((data) => {
+        const foundTrack = data.items.find(
+          (t) => t.trackId === parseInt(trackId),
+        );
+        setTrack(foundTrack);
+      });
+  }, [trackId]);
+
+  useEffect(() => {
+    fetch(`https://mindroad.runasp.net/api/Track/${trackId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setRoadmaps(data.items);
+      });
+  }, [trackId]);
   if (!track) return <p>Track not found</p>;
+
+  const filteredRoadmaps = roadmaps;
+  console.log("TRACK:", track);
+
+  const loggedIn = isLoggedIn();
+  const user = getCurrentUser();
 
   return (
     <div>
@@ -35,13 +61,13 @@ function TrackPage() {
       <div
         className="relative"
         style={{
-          backgroundImage: `url(${track.icon_url})`,
+          backgroundImage: `url(${track.trackIcon})`,
           backgroundSize: "cover",
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-black/100 to-black/50" />
         <div className="relative z-10">
-          <Navbar isLoggedIn={isLoggedIn} />
+          <Navbar isLoggedIn={loggedIn} user={user} />
           {/* hero */}
           <section className="py-20 px-10">
             {/* links */}
@@ -54,7 +80,7 @@ function TrackPage() {
                 Tracks
               </Link>
               <p>{">"}</p>
-              <p>{track.name}</p>
+              <p>{track.trackName}</p>
             </div>
             {/* 2 */}
             <div className="flex items-center font-semibold">
@@ -63,10 +89,12 @@ function TrackPage() {
               <p className="text-gray-300">(1,240 reviews)</p>
             </div>
             {/* 3 */}
-            <h1 className="text-5xl text-white mt-8 font-bold">{track.name}</h1>
+            <h1 className="text-5xl text-white mt-8 font-bold">
+              {track.trackName}
+            </h1>
             {/* 4 */}
             <p className="mt-8 text-gray-300 leading-relaxed w-1/2">
-              {track.description}
+              {track.trackDescription}
             </p>
             {/* 5 */}
             <div className="flex items-center gap-6 mt-8">
@@ -76,7 +104,10 @@ function TrackPage() {
               </div>
               <div className="text-gray-400 flex items-center gap-2">
                 <BookOpen size={16} />
-                <p>1 roadmap</p>
+                <p>
+                  {filteredRoadmaps.length} roadmap
+                  {filteredRoadmaps.length !== 1 ? "s" : ""}
+                </p>
               </div>
 
               <div className="text-gray-400 flex items-center gap-2">
@@ -233,22 +264,24 @@ function TrackPage() {
           {/* roadmap */}
           {activeTab === "roadmaps" && (
             <div>
-              {roadmaps.map((roadmap) => (
+              {filteredRoadmaps.map((roadmap) => (
                 <Link
-                  key={roadmap.rid}
-                  to={`/tracks/${trackId}/${roadmap.rid}`}
+                  key={roadmap.roadmapId}
+                  to={`/tracks/${trackId}/${roadmap.roadmapId}`}
                   className="bg-gray-100 block mb-4 rounded-xl overflow-hidden"
                 >
                   <div className="flex gap-4 items-center">
                     <img
-                      src={roadmap.icon_url}
-                      alt={roadmap.name}
+                      src={track.trackIcon}
+                      alt={roadmap.roadmapName}
                       className="w-44 h-28 object-cover"
                     />
                     <div>
-                      <h3 className="font-semibold text-xl">{roadmap.name}</h3>
+                      <h3 className="font-semibold text-xl">
+                        {roadmap.roadmapName}
+                      </h3>
                       <p className="text-sm text-gray-500 mt-4">
-                        {roadmap.description}
+                        {roadmap.roadmapDescription}
                       </p>
                     </div>
                   </div>
@@ -261,8 +294,8 @@ function TrackPage() {
         <div className="w-1/4">
           <div className="rounded-2xl shadow-2xl overflow-hidden sticky top-6">
             <img
-              src={track.icon_url}
-              alt={track.name}
+              src={Container}
+              alt={track.trackName}
               className="w-full h-40 object-cover"
             />
             <div className="p-4">

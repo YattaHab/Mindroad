@@ -3,14 +3,20 @@ import HeroSection from "../components/HeroSection";
 import StatsBar from "../components/StatsBar";
 import FeaturesSection from "../components/FeaturesSection";
 import FeaturedTracks from "../components/FeaturedTracks";
-import profile from "../assets/profile.jpg";
 import HowItWorks from "../components/HowItWorks";
 import ReviewsSec from "../components/ReviewsSec";
 import PricingSec from "../components/PricingSec";
 import Footer from "../components/Footer";
+import Progress from "../components/Progress";
+
+import { getCurrentUser, isLoggedIn } from "../services/authService";
+
+// import DebugUser from "../components/DebugUser";
 
 function HomePage() {
-  const isLoggedIn = false;
+  const loggedIn = isLoggedIn();
+  const user = getCurrentUser();
+
   return (
     <div>
       <div
@@ -20,18 +26,18 @@ function HomePage() {
             "radial-gradient(circle at center, #1a1060 0%, #030712 80%)",
         }}
       >
-        <Navbar
-          isLoggedIn={isLoggedIn}
-          user={{ name: "Toka Moustafa", image: profile }}
-        />
-        <HeroSection isLoggedIn={isLoggedIn} user={{ streak: 14 }} />
+        <Navbar isLoggedIn={loggedIn} user={user} />
+        <HeroSection isLoggedIn={loggedIn} user={user} />
         <StatsBar />
       </div>
+
       <FeaturesSection />
+      {loggedIn && <Progress />}
+
       <FeaturedTracks />
       <HowItWorks />
       <ReviewsSec />
-      <PricingSec isLoggedIn={isLoggedIn} />
+      <PricingSec isLoggedIn={loggedIn} />
       <Footer />
     </div>
   );

@@ -1,6 +1,7 @@
 import Navbar from "../components/Navbar";
-import { useParams } from "react-router-dom";
-import { Link } from "react-router-dom";
+import Container from "../assets/Container.png";
+import Footer from "../components/Footer";
+import { useParams, Link } from "react-router-dom";
 import {
   BookOpen,
   Clock,
@@ -16,368 +17,591 @@ import {
   Square,
   MessageCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import api from "../services/api";
+import { getCurrentUser, isLoggedIn } from "../services/authService";
 
-import { mockTracks, mockRoadmaps, mockRoadmapData } from "../data/mockTracks";
-import Footer from "../components/Footer";
+//useEffect
 
 function RoadmapPage() {
-  const [isLoggedIn, SetIsLoggedIn] = useState(false);
-  const mockUser = {
-    name: "Toka Moustafa",
-    image: "https://via.placeholder.com/32",
-  };
-
+  const loggedIn = isLoggedIn();
+  const user = getCurrentUser();
   const { trackId, roadmapId } = useParams();
+
+  const [track, setTrack] = useState(null);
+  const [roadmap, setRoadmap] = useState(null);
+  const [levels, setLevels] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [avgRating, setAvgRating] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [activeTab, setActiveTab] = useState("overview");
-
-  const track = mockTracks.find((t) => t.track_id === parseInt(trackId));
-  const roadmap = mockRoadmaps.find((r) => r.rid === parseInt(roadmapId));
-  // const roadmaps = mockRoadmaps.filter((r) => r.track_id === parseInt(trackId));
-
   const [openTopics, setOpenTopics] = useState({});
   const [completed, setCompleted] = useState({});
   const [bookmarked, setBookmarked] = useState({});
 
-  const isTopicCompleted = (topic, topicKey) => {
-    return topic.resources.every((_, rIndex) => {
-      const resKey = `${topicKey}-${rIndex}`;
-      return completed[resKey];
-    });
+  //if (loading)
+  // Load completed from localStorage
+  // useEffect(() => {
+  //   const saved = localStorage.getItem(`completed_${roadmapId}`);
+  //   if (saved) {
+  //     try {
+  //       setCompleted(JSON.parse(saved));
+  //     } catch {
+  //       setCompleted({});
+  //     }
+  //   }
+  // }, [roadmapId]);
+
+  // Load user progress from the correct endpoint
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    api
+      .get("/api/Users/progress")
+      .then((res) => {
+        const data = res.data;
+        console.log("USER PROGRESS DATA:", data);
+
+        // Find progress for THIS roadmap
+        const roadmapProgress = (data.items || data).find(
+          (item) => item.roadmapId === parseInt(roadmapId),
+        );
+
+        if (roadmapProgress && roadmapProgress.completedTopics) {
+          const completedMap = {};
+          roadmapProgress.completedTopics.forEach((topicId) => {
+            completedMap[topicId] = true;
+          });
+          setCompleted(completedMap);
+        }
+      })
+      .catch((err) => console.error("progress fetch error", err));
+  }, [roadmapId, loggedIn]);
+
+  useEffect(() => {
+    api
+      .get("/api/Track")
+      .then((res) => {
+        const found = (res.data.items || res.data).find(
+          (t) => t.trackId === parseInt(trackId),
+        );
+        setTrack(found || null);
+      })
+      .catch((err) => console.error("track fetch error", err));
+  }, [trackId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    api
+      .get(`/api/roadmap/${roadmapId}`)
+      .then((res) => {
+        if (cancelled) return;
+        const rm = res.data;
+        setRoadmap(rm);
+        setLevels(rm.levelResoponses || []);
+
+        // Save enrollment when roadmap loads successfully
+        if (loggedIn && trackId && roadmapId) {
+          const enrolled = JSON.parse(
+            localStorage.getItem("enrolledTracks") || "[]",
+          );
+          if (!enrolled.some((e) => e.roadmapId === parseInt(roadmapId))) {
+            enrolled.push({
+              trackId: parseInt(trackId),
+              roadmapId: parseInt(roadmapId),
+              startedAt: new Date().toISOString(),
+            });
+            localStorage.setItem("enrolledTracks", JSON.stringify(enrolled));
+          }
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setError("Failed to load roadmap.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roadmapId, trackId, loggedIn]);
+
+  // useEffect(() => {
+  //   api
+  //     .get(`/api/roadmaps/reviews/${roadmapId}`)
+  //     .then((res) => {
+  //       const items = res.data.items || res.data;
+  //       setReviews(items);
+  //       if (items.length > 0) {
+  //         const avg = items.reduce((sum, r) => sum + r.rate, 0) / items.length;
+  //         setAvgRating(avg.toFixed(1));
+  //       }
+  //     })
+  //     .catch((err) => {
+  //       console.error("Reviews fetch error", err);
+  //     });
+  // }, [roadmapId]);
+
+  // useEffect(() => {
+  //   if (!loggedIn) return;
+  //   api
+  //     .get("/api/bookmarks")
+  //     .then((res) => {
+  //       const items = res.data.items || res.data;
+  //       const map = {};
+  //       items.forEach((b) => {
+  //         map[b.resId] = true;
+  //       });
+  //       setBookmarked(map);
+  //     })
+  //     .catch((err) => {
+  //       console.error("bookmark error", err);
+  //     });
+  // }, [loggedIn]);
+
+  //onClick={(e)}
+
+  const isTopicDone = (topicId) => !!completed[topicId];
+
+  const toggleTopic = (topicId) => {
+    setOpenTopics((prev) => ({ ...prev, [topicId]: !prev[topicId] }));
   };
 
-  if (!track) return <p>Track not found</p>;
+  // const toggleBookmark = async (resId) => {
+  //   if (!loggedIn) {
+  //     navigate("/signin");
+  //     return;
+  //   }
+  //   const wasBookmarked = bookmarked[resId];
+  //   setBookmarked((prev) => ({ ...prev, [resId]: !wasBookmarked }));
+  //   try {
+  //     if (wasBookmarked) {
+  //       await api.delete(`/api/bookmarks/${resId}`);
+  //     } else {
+  //       await api.post(`/api/bookmarks/${resId}`);
+  //     }
+  //   } catch {
+  //     setBookmarked((prev) => ({ ...prev, [resId]: wasBookmarked }));
+  //   }
+  // };
 
+  //completed
+  const toggleTopicDone = async (topicId) => {
+    if (!loggedIn) return;
+    if (completed[topicId]) return;
+
+    console.log(`Completing topic: ${topicId} for user:`, user?.email);
+
+    // Update UI immediately
+    setCompleted((prev) => ({
+      ...prev,
+      [topicId]: true,
+    }));
+
+    try {
+      // Try sending user info in the request body
+      const response = await api.post(
+        `/api/Progress/complete-topic/${topicId}`,
+        {
+          userId: user?.email,
+          roadmapId: parseInt(roadmapId),
+          completed: true,
+        },
+      );
+
+      console.log("POST response:", response.status, response.data);
+
+      // After successful POST, manually add to localStorage as backup
+      const savedProgress = localStorage.getItem(
+        `completed_${roadmapId}_${user?.email}`,
+      );
+      const progressMap = savedProgress ? JSON.parse(savedProgress) : {};
+      progressMap[topicId] = true;
+      localStorage.setItem(
+        `completed_${roadmapId}_${user?.email}`,
+        JSON.stringify(progressMap),
+      );
+    } catch (err) {
+      console.error("Failed to complete topic:", err);
+      console.error("Error details:", err.response?.data);
+
+      // Rollback UI update on error
+      setCompleted((prev) => ({
+        ...prev,
+        [topicId]: false,
+      }));
+
+      alert("Failed to save progress. Please try again.");
+    }
+  };
+
+  // Totalprogress
+
+  const totalTopics = levels.reduce(
+    (n, l) => n + (l.topicResponses?.length || 0),
+    0,
+  );
+
+  const completedCount = Object.keys(completed).length;
+
+  const progress =
+    totalTopics > 0 ? Math.round((completedCount / totalTopics) * 100) : 0;
+
+  // if (error || !roadmap) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-[#030712]">
+  //       <p className="text-red-400 text-lg">{error || "Roadmap not found."}</p>
+  //     </div>
+  //   );
+  // }
+  if (!roadmap) return null;
+
+  const toggleBookmark = (resId) => {
+    const next = { ...bookmarked, [resId]: !bookmarked[resId] };
+    setBookmarked(next);
+  };
+
+  //completedCount
   return (
     <div>
-      {/* the bg the track img -----------*/}
+      {/* Hero with track bg */}
       <div
         className="relative"
         style={{
-          backgroundImage: `url(${track.icon_url})`,
+          backgroundImage: `url(${track?.trackIcon})`,
           backgroundSize: "cover",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/100 to-black/50 " />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/100 to-black/50" />
         <div className="relative z-10">
-          <Navbar isLoggedIn={isLoggedIn} user={mockUser} />
-          {/* hero */}
+          <Navbar isLoggedIn={loggedIn} user={user} />
           <section className="py-20 px-10">
-            {/* links */}
+            {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-gray-300 font-semibold mb-8">
-              <Link to="/" className=" hover:text-white">
+              <Link to="/" className="hover:text-white">
                 Home
               </Link>
               <p>{">"}</p>
-              <Link to="/tracks" className=" hover:text-white">
+              <Link to="/tracks" className="hover:text-white">
                 Tracks
               </Link>
               <p>{">"}</p>
-              <p>{track.name}</p>
+              <Link to={`/tracks/${trackId}`} className="hover:text-white">
+                {track?.trackName}
+              </Link>
               <p>{">"}</p>
-
-              <p>{roadmap.name}</p>
+              <p>{roadmap.roadmapName}</p>
             </div>
-            {/* 2 */}
+
+            {/* Rating */}
             <div className="flex items-center font-semibold">
               <Star size={16} className="fill-[#ffb900] mr-2 text-[#ffb900]" />
-              <h2 className="text-[#ffb900] mr-1">4.9</h2>
-              <p className="text-gray-300">(1,240 reviews)</p>
+              <h2 className="text-[#ffb900] mr-1">{avgRating ?? "—"}</h2>
+              <p className="text-gray-300">({reviews.length} reviews)</p>
             </div>
-            {/* 3 */}
+
             <h1 className="text-5xl text-white mt-8 font-bold">
-              {roadmap.name}
+              {roadmap.roadmapName}
             </h1>
-            {/* 4 */}
             <p className="mt-8 text-gray-300 leading-relaxed w-1/2">
-              {roadmap.description}
+              {roadmap.roadmapDescription}
             </p>
-            {/* 5 */}
+
+            {/* Stats */}
             <div className="flex items-center gap-6 mt-8">
               <div className="text-gray-400 flex items-center gap-2">
                 <Clock size={16} />
-                <p>6 months</p>
+                <p>Self-paced</p>
               </div>
               <div className="text-gray-400 flex items-center gap-2">
                 <BookOpen size={16} />
-                <p>topics</p>
+                <p>{totalTopics} topics</p>
               </div>
-
               <div className="text-gray-400 flex items-center gap-2">
                 <Users size={16} />
-                <p>12,400 enrolled</p>
+                <p>{levels.length} levels</p>
               </div>
             </div>
+
+            {/* Progress bar if logged in */}
+            {loggedIn && totalTopics > 0 && (
+              <div className="mt-6 max-w-sm">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-300">Your progress</span>
+                  <span className="text-primary font-bold">{progress}%</span>
+                </div>
+                <div className="w-full bg-white/20 rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </div>
-      {/* content */}
-      <section className="py-20 px-10 gap-10 flex ">
-        {/* left */}
-        <div className="flex-1 ">
-          {/* 1 */}
+
+      {/* Content */}
+      <section className="py-20 px-10 gap-10 flex">
+        {/* Left */}
+        <div className="flex-1">
+          {/* Tabs */}
           <div className="flex gap-8 border-b border-gray-200 mb-8">
-            <button
-              className={`px-3 pb-3 text-sm font-medium transition duration-300 ${activeTab === "overview" ? "text-primary border-b-2 border-primary" : "text-gray-400 hover:text-gray-600"}`}
-              onClick={() => setActiveTab("overview")}
-            >
-              Overview
-            </button>
-            <button
-              className={`px-3 pb-3 text-sm font-medium transition duration-300 ${activeTab === "resources" ? "text-primary border-b-2 border-primary" : "text-gray-400 hover:text-gray-600"}`}
-              onClick={() => setActiveTab("resources")}
-            >
-              Resources
-            </button>
+            {["overview", "resources"].map((tab) => (
+              <button
+                key={tab}
+                className={`px-3 pb-3 text-sm font-medium capitalize transition duration-300 ${
+                  activeTab === tab
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
-          {/* overview */}
+
+          {/* Overview tab */}
           {activeTab === "overview" && (
             <div>
-              {/* 1 */}
               <h2 className="text-2xl font-bold mb-5">What you'll learn</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Build responsive UIs with HTML, CSS & Tailwind</p>
-                </div>
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Create interactive SPAs with React & hooks</p>
-                </div>
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Work with PostgreSQL databases and ORMs</p>
-                </div>
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Containerise apps with Docker</p>
-                </div>
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Master JavaScript ES6+ and async programming</p>
-                </div>
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Design and build REST APIs with Node.js & Express</p>
-                </div>
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Implement JWT authentication and OAuth</p>
-                </div>
-                <div className="flex gap-1 items-center text-gray-600 mb-3">
-                  <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-                  <p>Deploy to AWS or Vercel with CI/CD pipelines</p>
-                </div>
+              <div className="grid grid-cols-2 gap-3 mb-8">
+                {[
+                  "Build responsive UIs with HTML, CSS & Tailwind",
+                  "Create interactive SPAs with React & hooks",
+                  "Work with databases and ORMs",
+                  "Containerise apps with Docker",
+                  "Master JavaScript ES6+ and async programming",
+                  "Design and build REST APIs",
+                  "Implement JWT authentication and OAuth",
+                  "Deploy to cloud with CI/CD pipelines",
+                ].map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex gap-2 items-center text-gray-600"
+                  >
+                    <div className="w-4 h-4 rounded-full bg-[#10b981] flex-shrink-0" />
+                    <p className="text-sm">{item}</p>
+                  </div>
+                ))}
               </div>
-              {/* - */}
-              <div>
-                <h2 className="text-2xl font-bold mb-5 mt-8">Skills covered</h2>
-                <div className="flex gap-3 flex-wrap">
-                  {[
-                    "HTML/CSS",
-                    "JavaScript",
-                    "React",
-                    "Node.js",
-                    "PostgreSQL",
-                    "REST APIs",
-                    "Docker",
-                    "CL/CD",
-                  ].map((skill) => (
-                    <p
-                      key={skill}
-                      className="bg-gray-100 text-gray-600 py-2 px-3 rounded-2xl"
-                    >
-                      {skill}
-                    </p>
-                  ))}
-                </div>
+
+              {/* Skills */}
+              <h2 className="text-2xl font-bold mb-5">Skills covered</h2>
+              <div className="flex gap-3 flex-wrap mb-8">
+                {[
+                  "HTML/CSS",
+                  "JavaScript",
+                  "React",
+                  "Node.js",
+                  "PostgreSQL",
+                  "REST APIs",
+                  "Docker",
+                  "CI/CD",
+                ].map((skill) => (
+                  <p
+                    key={skill}
+                    className="bg-gray-100 text-gray-600 py-2 px-3 rounded-2xl text-sm"
+                  >
+                    {skill}
+                  </p>
+                ))}
               </div>
-              {/* - */}
-              <div>
-                <h2 className="text-2xl font-bold mb-5 mt-8">
-                  Projects you'll build
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* 5 */}
-                  {[
-                    { num: "P1", name: "Portfolio Website" },
-                    { num: "P2", name: "Full-Stack Blog" },
-                    { num: "P3", name: "E-Commerce Platform" },
-                    { num: "P4", name: "Real-time Chat App" },
-                    { num: "P5", name: "SaaS Dashboard" },
-                  ].map((project) => (
-                    <div
-                      key={project.num}
-                      className="flex items-center gap-3 bg-100 rounded-lg px-4 py-3 bg-gray-50 max-w-sm"
-                    >
-                      <span className="bg-[#423ef7] text-white py-1 px-2 rounded-lg">
-                        {project.num}
-                      </span>
-                      <span className="text-gray-600">{project.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* d */}
-              <div>
-                <h2 className="text-2xl font-bold mb-5 mt-8">
-                  This track includes
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2">
-                    <Play size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">5h on-demand video</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Lesson notes & resources</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Code size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">18 hands-on projects </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Community forum access</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Award size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Certificate of completio</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Lifetime access</p>
+
+              {/* Reviews */}
+              {reviews.length > 0 && (
+                <div className="mt-10">
+                  <h2 className="text-2xl font-bold mb-5">
+                    Student Reviews{" "}
+                    <span className="ml-2 text-yellow-500 text-xl font-normal">
+                      ⭐ {avgRating}
+                    </span>
+                  </h2>
+                  <div className="flex flex-col gap-4">
+                    {reviews.slice(0, 4).map((review) => (
+                      <div
+                        key={review.revId}
+                        className="bg-gray-50 rounded-xl p-5 border border-gray-100"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="font-semibold">
+                            {review.username || "Learner"}
+                          </p>
+                          <p className="text-yellow-500">
+                            {"⭐".repeat(review.rate)}
+                          </p>
+                        </div>
+                        {review.content && (
+                          <p className="text-gray-500 text-sm">
+                            {review.content}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-              {/* d */}
+              )}
             </div>
           )}
 
-          {/* done */}
-          {/* resources */}
+          {/* Resources tab */}
           {activeTab === "resources" && (
             <div>
-              {mockRoadmapData.map((level, lIndex) => (
+              {levels.length === 0 && (
+                <p className="text-gray-400">No content available yet.</p>
+              )}
+              {levels.map((level, lIndex) => (
                 <div key={lIndex} className="mb-8">
-                  {/* level */}
-                  <h2 className="text-xl font-bold mb-4">{level.level}</h2>
-                  {level.topics.map((topic, tIndex) => {
-                    const topicKey = `${lIndex}-${tIndex}`;
-                    const isOpen = openTopics[topicKey];
-
+                  <h2 className="text-xl font-bold mb-4 text-gray-900">
+                    {level.levelName}
+                  </h2>
+                  {(level.topicResponses || []).map((topic) => {
+                    const topicId = topic.topicId;
+                    const isOpen = !!openTopics[topicId];
+                    console.log("TOPIC OBJECT:", topic);
+                    const resources = Array.isArray(topic.resources)
+                      ? topic.resources
+                      : [];
                     return (
-                      <div key={tIndex} className="mb-3">
-                        <div className="bg-gray-100 rounded-lg overflow-hidden px-4 py-4">
-                          {/* topic */}
+                      <div key={topicId} className="mb-3">
+                        <div className="bg-gray-100 rounded-xl overflow-hidden">
                           <div
-                            className="flex justify-between items-center cursor-pointer mb-3 "
-                            onClick={() =>
-                              setOpenTopics({
-                                ...openTopics,
-                                [topicKey]: !isOpen,
-                              })
-                            }
+                            className="flex justify-between items-center cursor-pointer px-4 py-4"
+                            onClick={() => toggleTopic(topicId)}
                           >
-                            <span className="font-semibold">{topic.title}</span>
+                            <span className="font-semibold text-gray-800">
+                              {topic.topicName}
+                            </span>
                             <div className="flex gap-3 items-center">
-                              {/* bookmark */}
-                              <button
-                                hidden={!isLoggedIn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setBookmarked({
-                                    ...bookmarked,
-                                    [topicKey]: !bookmarked[topicKey],
-                                  });
-                                }}
-                              >
-                                {bookmarked[topicKey] ? (
-                                  <Bookmark size={20} className="fill-black" />
-                                ) : (
-                                  <Bookmark size={20} />
-                                )}
-                              </button>
-                              {/* complete */}
-                              <button
-                                hidden={!isLoggedIn}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCompleted({
-                                    ...completed,
-                                    [topicKey]: !completed[topicKey],
-                                  });
-                                }}
-                              >
-                                {isTopicCompleted(topic, topicKey) ? (
-                                  <SquareCheck
-                                    size={20}
-                                    className="fill-primary"
-                                  />
-                                ) : (
-                                  <Square size={20} />
-                                )}
-                              </button>
-                              {/* comment */}
+                              {loggedIn && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleTopicDone(topic.topicId);
+                                  }}
+                                  title={
+                                    isTopicDone(topic.topicId)
+                                      ? "Completed"
+                                      : "Mark as complete"
+                                  }
+                                >
+                                  {isTopicDone(topic.topicId) ? (
+                                    <SquareCheck
+                                      size={20}
+                                      className="fill-primary text-primary"
+                                    />
+                                  ) : (
+                                    <Square
+                                      size={20}
+                                      className="text-gray-400"
+                                    />
+                                  )}
+                                </button>
+                              )}
                               <Link
-                                to={`/tracks/${trackId}/${roadmapId}/${topicKey}/comments`}
+                                to={`/tracks/${trackId}/${roadmapId}/${topicId}/comments`}
                                 onClick={(e) => e.stopPropagation()}
+                                title="Discussion"
                               >
-                                <MessageCircle size={20} />
+                                <MessageCircle
+                                  size={20}
+                                  className="text-gray-400 hover:text-primary transition"
+                                />
                               </Link>
                             </div>
                           </div>
-                          {/* resources */}
 
                           <div
-                            className={`transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"}`}
+                            className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                              isOpen
+                                ? "max-h-[1000px] opacity-100"
+                                : "max-h-0 opacity-0"
+                            }`}
                           >
-                            <div className="border-t border-gray-300 px-4 py-3">
-                              {topic.resources.map((res, rIndex) => {
-                                const resKey = `${topicKey}-${rIndex}`;
-                                return (
-                                  <div
-                                    key={rIndex}
-                                    className="flex justify-between items-center mb-2 mt-3"
-                                  >
-                                    {/* link */}
-                                    <a
-                                      href={res.link}
-                                      target="_blank"
-                                      onClick={() =>
-                                        setCompleted({
-                                          ...completed,
-                                          [resKey]: true,
-                                        })
-                                      }
-                                      className="text-primary hover:underline"
+                            <div className="border-t border-gray-200 px-4 py-3">
+                              {resources.length === 0 ? (
+                                <p className="text-gray-400 text-sm py-2">
+                                  No resources yet.
+                                </p>
+                              ) : (
+                                resources.map((res) => {
+                                  return (
+                                    <div
+                                      key={res.resourceId}
+                                      className="flex justify-between items-center mb-3 mt-2"
                                     >
-                                      {res.title}
-                                    </a>
-                                    <div className="flex gap-3 items-center">
-                                      {/* complete */}
-                                      <button
-                                        hidden={!isLoggedIn}
-                                        onClick={() =>
-                                          setCompleted({
-                                            ...completed,
-                                            [resKey]: !completed[resKey],
-                                          })
+                                      <a
+                                        href={
+                                          res.rsourceUrl?.startsWith("http")
+                                            ? res.rsourceUrl
+                                            : `https://${res.rsourceUrl}`
                                         }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline text-sm flex items-center gap-2"
                                       >
-                                        {completed[resKey] ? (
-                                          <SquareCheck
-                                            size={20}
-                                            className="fill-primary"
-                                          />
-                                        ) : (
-                                          <Square size={20} />
+                                        {res.resourceName}
+
+                                        {res.paid && (
+                                          <span className="text-xs bg-yellow-100 text-yellow-600 px-1.5 py-0.5 rounded">
+                                            Pro
+                                          </span>
                                         )}
-                                      </button>
+                                      </a>
+
+                                      <div className="flex gap-3 items-center">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleBookmark(res.resourceId);
+                                          }}
+                                        >
+                                          <Bookmark
+                                            size={18}
+                                            className={
+                                              bookmarked[res.resourceId]
+                                                ? "fill-primary text-primary"
+                                                : "text-gray-400"
+                                            }
+                                          />
+                                        </button>
+
+                                        {loggedIn && (
+                                          <button
+                                            hidden
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleTopicDone(topic.topicId);
+                                            }}
+                                          >
+                                            {completed[topic.topicId] ? (
+                                              <SquareCheck
+                                                size={18}
+                                                className="text-primary fill-primary"
+                                              />
+                                            ) : (
+                                              <Square
+                                                size={18}
+                                                className="text-gray-400"
+                                              />
+                                            )}
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })
+                              )}
                             </div>
                           </div>
                         </div>
@@ -388,56 +612,83 @@ function RoadmapPage() {
               ))}
             </div>
           )}
-          {/* ................................. */}
         </div>
-        {/* right */}
-        <div className="w-1/4">
-          <div className="rounded-2xl shadow-2xl overflow-hidden sticky top-6">
-            <img
-              src={track.icon_url}
-              alt={track.name}
-              className="w-full h-40 object-cover"
-            />
-            <div className="p-4">
-              <h1 className="text-3xl font-bold mb-3">
+
+        {/* Right sidebar */}
+        <div className="w-72 flex-shrink-0">
+          <div className="rounded-2xl shadow-xl overflow-hidden sticky top-6 border border-gray-100">
+            {track?.trackIcon && (
+              <img
+                src={Container}
+                alt={track?.trackName}
+                className="w-full h-40 object-cover"
+              />
+            )}
+            <div className="p-5">
+              <h1 className="text-2xl font-bold mb-1">
                 Free{" "}
                 <span className="text-sm font-normal text-gray-500">
                   to start
                 </span>
               </h1>
-              <p className="text-gray-400 mb-8">Pro features from E£49/mo</p>
-              <div className="flex justify-center mb-4">
+              <p className="text-gray-400 text-sm mb-5">
+                Pro features from $19/mo
+              </p>
+
+              <div className="flex flex-col gap-3 mb-5">
+                {loggedIn ? (
+                  <Link
+                    to={`/tracks/${trackId}/${roadmapId}/learn`}
+                    className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl text-center hover:opacity-90 transition"
+                  >
+                    Continue Learning →
+                  </Link>
+                ) : (
+                  <Link
+                    to="/signup"
+                    className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl text-center hover:opacity-90 transition"
+                  >
+                    Get Started for Free →
+                  </Link>
+                )}
                 <Link
-                  to={"/priecing"}
-                  className=" w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl text-center hover:opacity-100 transition duration-300"
+                  to="/pricing"
+                  className="w-full py-3 px-4 bg-gray-50 text-gray-700 font-semibold rounded-xl text-center hover:bg-gray-100 transition border border-gray-200 text-sm"
                 >
-                  Continue Learning {">"}
+                  View Pro Plan
                 </Link>
               </div>
-              {/* . */}
 
-              <div className="flex items-center gap-2">
-                <Play size={16} className="text-gray-400" />
-                <p>5h of video lessons</p>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Code size={16} className="text-gray-400" />
-                <p>18 real projects</p>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Award size={16} className="text-gray-400" />
-                <p>Certificate of completetion</p>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Zap size={16} className="text-gray-400" />
-                <p>Lifetime access</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Play size={14} className="text-gray-400" />
+                  <p>Self-paced video lessons</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Code size={14} className="text-gray-400" />
+                  <p>Real-world projects</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Award size={14} className="text-gray-400" />
+                  <p>Certificate of completion</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Zap size={14} className="text-gray-400" />
+                  <p>Lifetime access</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <FileText size={14} className="text-gray-400" />
+                  <p>Lesson notes & resources</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
+
       <Footer />
     </div>
   );
 }
+
 export default RoadmapPage;

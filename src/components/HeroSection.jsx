@@ -26,7 +26,7 @@ export default function HeroSection({ isLoggedIn = false, user = null }) {
         {/* buttons */}
         <div className="mb-4">
           <Link
-            to="/pricing"
+            to={isLoggedIn ? "/tracks" : "/signup"}
             className="text-white font-medium bg-primary px-4 py-2 rounded-xl hover:opacity-80 transition duration-300 shadow-lg shadow-primary/50"
           >
             Start for free {">"}
