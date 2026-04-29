@@ -9,9 +9,6 @@ export default function DebugUser() {
     const savedToken = localStorage.getItem("token");
     const savedUser = localStorage.getItem("user");
 
-    console.log("🗄️ TOKEN:", savedToken ? "✅ FOUND" : "❌ MISSING");
-    console.log("🗄️ USER:", savedUser);
-
     setToken(savedToken || "No token");
 
     if (savedUser) {

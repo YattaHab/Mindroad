@@ -1,9 +1,17 @@
 import axios from "axios";
 import { clearAuth } from "./authService";
 
+//edit*****
 const api = axios.create({
   baseURL: "https://mindroad.runasp.net",
 });
+//********
+// const api = axios.create({
+//   baseURL: "https://mindroad.runasp.net/api",
+//   headers: {
+//     "Content-Type": "application/json",
+//   },
+// });
 
 //attach jwt  to requests
 api.interceptors.request.use((config) => {

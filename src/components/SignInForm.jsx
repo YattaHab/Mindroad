@@ -28,9 +28,7 @@ export default function SignInForm() {
         RememberMe: rememberMe,
       });
 
-      const data = res.data; // axios uses .data
-
-      console.log("LOGIN RESPONSE", data);
+      const data = res.data;
 
       const token = data.token || data.jwtToken;
 
@@ -38,7 +36,7 @@ export default function SignInForm() {
         alert("No token received");
         return;
       }
-      let name = email.split("@")[0]; // default fallback
+      let name = email.split("@")[0];
 
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
@@ -58,9 +56,6 @@ export default function SignInForm() {
 
       navigate("/");
     } catch (err) {
-      console.log("❌ FULL ERROR:", err.response);
-      console.log("❌ ERROR DATA:", err.response?.data);
-      console.log("❌ ERROR STATUS:", err.response?.status);
       console.log(err);
       alert(err.response?.data?.message || "Login failed");
     }

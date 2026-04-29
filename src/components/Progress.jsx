@@ -25,7 +25,6 @@ export default function Progress() {
         // Handle different response structures
         const progressData = data.items || data || [];
 
-        console.log("USER PROGRESS:", progressData);
         setUserProgress(progressData);
       } catch (err) {
         console.error("Progress fetch error:", err);

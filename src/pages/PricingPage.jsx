@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { getCurrentUser, isLoggedIn } from "../services/authService";
-
+//console
 const plans = [
   {
     name: "Free",
@@ -110,7 +110,7 @@ export default function PricingPage() {
   const user = getCurrentUser();
 
   return (
-    <div className="min-h-screen bg-gray-200 ">
+    <div className="min-h-screen bg-gray-50 ">
       <div
         className="bg-[#030712] "
         style={{
@@ -161,7 +161,7 @@ export default function PricingPage() {
       </div>
 
       {/* Plans */}
-      <section className="px-6 py-16 max-w-6xl mx-auto pg-white">
+      <section className="px-6 py-16 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => (
             <div
@@ -307,7 +307,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Money-back guarantee */}
+      {/* Money-back */}
       <section className="px-6 max-w-4xl mx-auto mb-20">
         <div className="bg-green-50 border border-green-200 rounded-2xl p-6 flex items-center gap-5">
           <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">

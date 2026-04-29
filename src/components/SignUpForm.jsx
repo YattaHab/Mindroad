@@ -42,29 +42,17 @@ export default function SignUpForm() {
       });
 
       const data = res.data;
-      console.log("REGISTER RESPONSE:", data);
 
       const token = data.token || data.jwtToken;
 
-      // If backend logs user in immediately
       if (token) {
         saveAuth(token, {
           email,
           name: fullName,
           image: null,
         });
-
-        // ADD THESE 3 LINES:
-        console.log("🔥 SAVED TO LOCALSTORAGE:");
-        console.log("Token key:", localStorage.getItem("authToken"));
-        console.log("User key:", localStorage.getItem("authUser"));
-        alert("Check console - what keys?");
-
-        alert("Account created & logged in!");
         navigate("/");
       } else {
-        // Most likely case
-        alert("Account created! Please sign in.");
         navigate("/signin");
       }
     } catch (err) {

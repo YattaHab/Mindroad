@@ -11,8 +11,6 @@ import Progress from "../components/Progress";
 
 import { getCurrentUser, isLoggedIn } from "../services/authService";
 
-// import DebugUser from "../components/DebugUser";
-
 function HomePage() {
   const loggedIn = isLoggedIn();
   const user = getCurrentUser();
@@ -28,6 +26,8 @@ function HomePage() {
       >
         <Navbar isLoggedIn={loggedIn} user={user} />
         <HeroSection isLoggedIn={loggedIn} user={user} />
+        <hr className="border-[#0d1031] mx-10" />
+
         <StatsBar />
       </div>
 

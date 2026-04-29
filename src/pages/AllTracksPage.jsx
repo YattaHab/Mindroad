@@ -29,7 +29,13 @@ function AllTracksPage() {
 
   return (
     <div>
-      <div className="bg-[#0a101d]">
+      <div
+        className="bg-[#030712]"
+        style={{
+          background:
+            "radial-gradient(circle at center, #0c0828 0%, #030712 80%)",
+        }}
+      >
         <Navbar isLoggedIn={loggedIn} user={user} />
         {/* hero */}
         <section className="py-20 px-10">

@@ -50,7 +50,6 @@ function TrackPage() {
   if (!track) return <p>Track not found</p>;
 
   const filteredRoadmaps = roadmaps;
-  console.log("TRACK:", track);
 
   const loggedIn = isLoggedIn();
   const user = getCurrentUser();

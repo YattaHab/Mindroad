@@ -21,7 +21,7 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import { getCurrentUser, isLoggedIn } from "../services/authService";
 
-//useEffect
+////console
 
 function RoadmapPage() {
   const loggedIn = isLoggedIn();
@@ -62,7 +62,6 @@ function RoadmapPage() {
       .get("/api/Users/progress")
       .then((res) => {
         const data = res.data;
-        console.log("USER PROGRESS DATA:", data);
 
         // Find progress for THIS roadmap
         const roadmapProgress = (data.items || data).find(
@@ -166,8 +165,6 @@ function RoadmapPage() {
   //       console.error("bookmark error", err);
   //     });
   // }, [loggedIn]);
-
-  //onClick={(e)}
 
   const isTopicDone = (topicId) => !!completed[topicId];
 
@@ -468,7 +465,6 @@ function RoadmapPage() {
                   {(level.topicResponses || []).map((topic) => {
                     const topicId = topic.topicId;
                     const isOpen = !!openTopics[topicId];
-                    console.log("TOPIC OBJECT:", topic);
                     const resources = Array.isArray(topic.resources)
                       ? topic.resources
                       : [];
