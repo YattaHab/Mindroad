@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import api from "../services/api";
 import { saveAuth } from "../services/authService";
+
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -11,25 +12,29 @@ export default function SignUpForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agree, setAgree] = useState(false);
 
+  const [errors, setErrors] = useState({});
+
   const navigate = useNavigate();
   const handleRegister = async () => {
-    if (!fullName || !email || !password) {
-      alert("Please fill all fields");
-      return;
-    }
+    setErrors({});
+    const newErrors = {};
 
-    if (password.length < 6) {
-      alert("Password must be at least 6 characters");
-      return;
-    }
+    if (!fullName) newErrors.fullName = "Full name is required";
+    if (!email) newErrors.email = "Email is required";
 
-    if (password !== confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
+    if (!password) newErrors.password = "Password is required";
+    else if (password.length < 6)
+      newErrors.password = "Password must be at least 6 characters";
 
-    if (!agree) {
-      alert("You must agree to the terms");
+    if (!confirmPassword)
+      newErrors.confirmPassword = "Please confirm your password";
+    else if (password !== confirmPassword)
+      newErrors.confirmPassword = "Passwords do not match";
+
+    if (!agree) newErrors.agree = "You must agree to the terms";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -57,7 +62,9 @@ export default function SignUpForm() {
       }
     } catch (err) {
       console.log(err);
-      alert(err.response?.data?.message || "Registration failed");
+      setErrors({
+        genral: err.response?.data?.message || "Registration failed",
+      });
     }
   };
 
@@ -89,6 +96,9 @@ export default function SignUpForm() {
             className="outline-none"
           />
         </div>
+        {errors.fullName && (
+          <p className="text-red-500 text-sm mb-2">{errors.fullName}</p>
+        )}
       </div>
 
       {/* email */}
@@ -108,6 +118,9 @@ export default function SignUpForm() {
             className="outline-none"
           />
         </div>
+        {errors.email && (
+          <p className="text-red-500 text-sm mb-2">{errors.email}</p>
+        )}
       </div>
       {/* pass */}
       <div className="mb-3">
@@ -128,6 +141,7 @@ export default function SignUpForm() {
               className="outline-none"
             />
           </div>
+
           <button onClick={() => setShowPassword(!showPassword)} className="">
             {showPassword ? (
               <EyeOff size={16} className="text-gray-400" />
@@ -136,6 +150,9 @@ export default function SignUpForm() {
             )}
           </button>
         </div>
+        {errors.password && (
+          <p className="text-red-500 text-sm mb-2">{errors.password}</p>
+        )}
       </div>
       {/* confirm pass */}
       <div className="mb-3">
@@ -157,6 +174,9 @@ export default function SignUpForm() {
             />
           </div>
         </div>
+        {errors.confirmPassword && (
+          <p className="text-red-500 text-sm mb-2">{errors.confirmPassword}</p>
+        )}
       </div>
       {/* terms */}
       <div
@@ -178,7 +198,13 @@ export default function SignUpForm() {
           </span>
         </label>
       </div>
+      {errors.agree && (
+        <p className="text-red-500 text-sm mb-2">{errors.agree}</p>
+      )}
       {/* btn */}
+      {errors.general && (
+        <p className="text-red-500 text-sm mb-2">{errors.general}</p>
+      )}
       <button
         onClick={handleRegister}
         className="mb-3 bg-primary text-white py-2.5 rounded-xl w-full"

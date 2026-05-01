@@ -12,15 +12,24 @@ export default function SignInForm() {
 
   const navigate = useNavigate();
 
+  const [errors, setErrors] = useState({});
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      alert("Please enter email and password");
+    setErrors({});
+
+    const newErrors = {};
+
+    if (!email) newErrors.email = "Email is required";
+
+    if (!password) newErrors.password = "Password is required";
+    else if (password.length < 8)
+      newErrors.password = "Password must be at least 8 characters";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
-    if (password.length < 8) {
-      alert("Password must be 8+ characters");
-      return;
-    }
+
     try {
       const res = await api.post("/api/Account/login", {
         Email: email,
@@ -57,7 +66,7 @@ export default function SignInForm() {
       navigate("/");
     } catch (err) {
       console.log(err);
-      alert(err.response?.data?.message || "Login failed");
+      setErrors({ general: err.response?.data?.message || "Login failed" });
     }
   };
 
@@ -96,6 +105,9 @@ export default function SignInForm() {
             className="outline-none"
           />
         </div>
+        {errors.email && (
+          <p className="text-red-500 text-sm mb-2">{errors.email}</p>
+        )}
       </div>
 
       {/* pass */}
@@ -128,6 +140,9 @@ export default function SignInForm() {
             )}
           </button>
         </div>
+        {errors.password && (
+          <p className="text-red-500 text-sm mb-2">{errors.password}</p>
+        )}
       </div>
 
       {/* remember me */}
@@ -144,6 +159,9 @@ export default function SignInForm() {
       </div>
 
       {/* sign in btn */}
+      {errors.general && (
+        <p className="text-red-500 text-sm mb-2">{errors.general}</p>
+      )}
       <button
         onClick={handleLogin}
         className="mb-5 bg-primary text-white py-2.5 rounded-xl w-full"

@@ -285,11 +285,17 @@ function AboutPage() {
           </p>
 
           <div className="flex justify-center gap-4">
-            <Link className="text-white font-medium bg-primary px-6 py-3 rounded-xl shadow-lg shadow-gray-400 hover:bg-primary/80 duration-300">
+            <Link
+              to="/Tracks"
+              className="text-white font-medium bg-primary px-6 py-3 rounded-xl shadow-lg shadow-gray-400 hover:bg-primary/80 duration-300"
+            >
               Browse Tracks {"->"}
             </Link>
 
-            <Link className="border border-white/20 px-6 py-3 rounded-xl bg-gray-200 shadow-lg shadow-gray-400">
+            <Link
+              to="/pricing"
+              className="border border-white/20 px-6 py-3 rounded-xl bg-gray-200 shadow-lg shadow-gray-400"
+            >
               See Pricing
             </Link>
           </div>
