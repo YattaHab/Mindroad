@@ -18,11 +18,9 @@ export default function Progress() {
 
     const fetchUserProgress = async () => {
       try {
-        // Use the Users/progress endpoint from your swagger
         const response = await api.get("/api/Users/progress");
         const data = response.data;
 
-        // Handle different response structures
         const progressData = data.items || data || [];
 
         setUserProgress(progressData);
@@ -101,19 +99,7 @@ export default function Progress() {
   }
 
   return (
-    <section className="bg-gray-100 px-10 py-5">
-      <p className="text-primary text-sm font-semibold mb-3">YOUR PROGRESS</p>
-      <div className="flex justify-between mb-8">
-        <h1 className="font-bold text-4xl">Continue Learning</h1>
-        <Link
-          to="/tracks"
-          className="flex items-center gap-2 text-primary text-sm font-medium"
-        >
-          Browse all tracks
-          <ArrowRight size={16} />
-        </Link>
-      </div>
-
+    <section className=" px-10 py-5">
       <div className="flex gap-6 overflow-x-auto pb-4">
         {userProgress.map((item, index) => (
           <Link

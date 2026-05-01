@@ -10,6 +10,8 @@ import Footer from "../components/Footer";
 import Progress from "../components/Progress";
 
 import { getCurrentUser, isLoggedIn } from "../services/authService";
+import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 function HomePage() {
   const loggedIn = isLoggedIn();
@@ -32,7 +34,24 @@ function HomePage() {
       </div>
 
       <FeaturesSection />
-      {loggedIn && <Progress />}
+      {loggedIn && (
+        <div className="bg-gray-100 py-8">
+          <p className="text-primary text-sm font-semibold mb-3 px-10">
+            YOUR PROGRESS
+          </p>
+          <div className="flex justify-between mb-8 px-10">
+            <h1 className="font-bold text-4xl">Continue Learning</h1>
+            <Link
+              to="/tracks"
+              className="flex items-center gap-2 text-primary text-sm font-medium"
+            >
+              Browse all tracks
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+          <Progress />
+        </div>
+      )}
 
       <FeaturedTracks />
       <HowItWorks />

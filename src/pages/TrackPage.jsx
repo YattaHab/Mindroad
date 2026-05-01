@@ -1,6 +1,6 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import Container from "../assets/Container.png";
 import {
@@ -14,20 +14,27 @@ import {
   Award,
   Bolt,
   Zap,
+  CheckCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "../services/authService";
-import { isLoggedIn } from "../services/authService";
+import { getCurrentUser, isLoggedIn } from "../services/authService";
+import api from "../services/api";
 
-// import { mockTracks, mockRoadmaps } from "../data/mockTracks";
-
-// const loggedIn = isLoggedIn();
 function TrackPage() {
+  const navigate = useNavigate();
   const { trackId } = useParams();
   const [activeTab, setActiveTab] = useState("overview");
   const [roadmaps, setRoadmaps] = useState([]);
-
   const [track, setTrack] = useState(null);
+
+  //enrollment state
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [enrollLoading, setEnrollLoading] = useState(false);
+  const [enrollError, setEnrollError] = useState(null);
+  const [checkingEnrollment, setCheckingEnrollment] = useState(false);
+
+  const loggedIn = isLoggedIn();
+  const user = getCurrentUser();
 
   useEffect(() => {
     fetch(`https://mindroad.runasp.net/api/Track`)
@@ -47,16 +54,54 @@ function TrackPage() {
         setRoadmaps(data.items);
       });
   }, [trackId]);
+
+  //Check if user already enrolled
+  useEffect(() => {
+    if (!loggedIn) return;
+    setCheckingEnrollment(true);
+    api
+      .get(`/api/Track/${trackId}/enroll`)
+      .then(() => {
+        setIsEnrolled(true);
+      })
+      .catch((err) => {
+        const status = err.response?.status;
+        if (status === 404 || status === 400) {
+          setIsEnrolled(false);
+        }
+      })
+      .finally(() => setCheckingEnrollment(false));
+  }, [loggedIn, trackId]);
+
+  const handleEnroll = async () => {
+    if (!loggedIn) {
+      navigate("/signin");
+      return;
+    }
+    setEnrollLoading(true);
+    setEnrollError(null);
+    try {
+      await api.post(`/api/Track/${trackId}/enroll`);
+      setIsEnrolled(true);
+    } catch (err) {
+      const status = err.response?.status;
+      //409->already enrolled, treat as success
+      if (status === 409) {
+        setIsEnrolled(true);
+      } else {
+        console.error("enroll Error", err);
+        setEnrollError(err.response?.data?.message || "failed to enroll");
+      }
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
+
   if (!track) return <p>Track not found</p>;
-
   const filteredRoadmaps = roadmaps;
-
-  const loggedIn = isLoggedIn();
-  const user = getCurrentUser();
 
   return (
     <div>
-      {/* the bg the track img -----------*/}
       <div
         className="relative"
         style={{
@@ -114,6 +159,17 @@ function TrackPage() {
                 <p>12,400 enrolled</p>
               </div>
             </div>
+
+            {/* enrollment btn */}
+            {loggedIn && isEnrolled && (
+              <div className="mt-6 inline-flex items-center gap-2 bg-green-500/20 border border-green-500/30 text-green-400 px-4 py-2 rounded-xl">
+                <CheckCircle size={16} />
+                <span className="font-semibold text-sm">
+                  You're enrolled in this track
+                </span>
+              </div>
+            )}
+            {/* end of enrollment btn */}
           </section>
         </div>
       </div>
@@ -121,7 +177,7 @@ function TrackPage() {
       <section className="py-20 px-10 gap-10 flex ">
         {/* left */}
         <div className="flex-1 ">
-          {/* 1 */}
+          {/* tabs */}
           <div className="flex gap-8 border-b border-gray-200 mb-8">
             <button
               className={`px-3 pb-3 text-sm font-medium transition duration-300 ${activeTab === "overview" ? "text-primary border-b-2 border-primary" : "text-gray-400 hover:text-gray-600"}`}
@@ -263,6 +319,22 @@ function TrackPage() {
           {/* roadmap */}
           {activeTab === "roadmaps" && (
             <div>
+              {/* enroll if not enrolled */}
+              {loggedIn && !isEnrolled && !checkingEnrollment && (
+                <div className="bg-primary/5 border border-blue-200 rounded-xl p-4 mb-6 flex item-center justify-between">
+                  <p className="text-primary text-sm font-medium flex items-center">
+                    Enroll in this track
+                  </p>
+                  <button
+                    onClick={handleEnroll}
+                    disabled={enrollLoading}
+                    className="ml-4 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition flex-shrink-0"
+                  >
+                    Enroll now
+                  </button>
+                </div>
+              )}
+              {/* end  */}
               {filteredRoadmaps.map((roadmap) => (
                 <Link
                   key={roadmap.roadmapId}

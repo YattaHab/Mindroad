@@ -50,7 +50,7 @@ export default function UserSidebar({ user, onClose }) {
         {/* items */}
         <div className="flex flex-col p-4 gap-1 flex-1">
           <Link
-            to="/user/profile"
+            to="/user#profile"
             onClick={onClose}
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition duration-200"
           >
@@ -58,7 +58,7 @@ export default function UserSidebar({ user, onClose }) {
             <span className="font-semibold">My Profile</span>
           </Link>
           <Link
-            to="/user/bookmarks"
+            to="/user#bookmarks"
             onClick={onClose}
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition duration-200"
           >
@@ -67,7 +67,7 @@ export default function UserSidebar({ user, onClose }) {
           </Link>
 
           <Link
-            to="/user/learnings"
+            to="/user#learnings"
             onClick={onClose}
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition duration-200"
           >
@@ -76,7 +76,7 @@ export default function UserSidebar({ user, onClose }) {
           </Link>
 
           <Link
-            to="/user/notification"
+            to="/user#notification"
             onClick={onClose}
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition duration-200"
           >
@@ -85,7 +85,7 @@ export default function UserSidebar({ user, onClose }) {
           </Link>
 
           <Link
-            to="/user/setting"
+            to="/user#setting"
             onClick={onClose}
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition duration-200"
           >
@@ -93,7 +93,7 @@ export default function UserSidebar({ user, onClose }) {
             <span className="font-semibold">Settings</span>
           </Link>
           <Link
-            to="/user/subscriptions"
+            to="/user#subscriptions"
             onClick={onClose}
             className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition duration-200"
           >

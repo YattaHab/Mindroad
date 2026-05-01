@@ -10,6 +10,7 @@ import RoadmapCommentPage from "./pages/RoadmapCommentPage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
 import PricingPage from "./pages/PricingPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 
 function App() {
   return (
@@ -21,11 +22,15 @@ function App() {
       <Route path="/tracks" element={<AllTracksPage />} />
       <Route path="/tracks/:trackId" element={<TrackPage />} />
       <Route path="/tracks/:trackId/:roadmapId" element={<RoadmapPage />} />
-      {/* <Route
-        path="/tracks/:trackId/:roadmapId/:topicId/comments"
-        element={<RoadmapCommentPage />}
-      /> */}
       <Route path="/about" element={<AboutPage />} />
+      <Route
+        path="/user"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/tracks/:trackId/:roadmapId/:topicId/comments"
         element={
@@ -33,7 +38,7 @@ function App() {
             <RoadmapCommentPage />
           </ProtectedRoute>
         }
-      />{" "}
+      />
     </Routes>
   );
 }

@@ -21,7 +21,18 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import { getCurrentUser, isLoggedIn } from "../services/authService";
 
-////console
+//if (loading)
+// Load completed from localStorage
+// useEffect(() => {
+//   const saved = localStorage.getItem(`completed_${roadmapId}`);
+//   if (saved) {
+//     try {
+//       setCompleted(JSON.parse(saved));
+//     } catch {
+//       setCompleted({});
+//     }
+//   }
+// }, [roadmapId]);
 
 function RoadmapPage() {
   const loggedIn = isLoggedIn();
@@ -41,43 +52,58 @@ function RoadmapPage() {
   const [completed, setCompleted] = useState({});
   const [bookmarked, setBookmarked] = useState({});
 
-  //if (loading)
-  // Load completed from localStorage
-  // useEffect(() => {
-  //   const saved = localStorage.getItem(`completed_${roadmapId}`);
-  //   if (saved) {
-  //     try {
-  //       setCompleted(JSON.parse(saved));
-  //     } catch {
-  //       setCompleted({});
-  //     }
-  //   }
-  // }, [roadmapId]);
-
-  // Load user progress from the correct endpoint
+  //progresssss
   useEffect(() => {
     if (!loggedIn) return;
+    const fetchProgress = async () => {
+      try {
+        const res = await api.get(`/api/Progress/roadmap/${roadmapId}`);
+        console.log("progress data", res.data);
+        const completedMap = {};
+        res.data.forEach((item) => {
+          const id = item.topicId ?? item;
+          completedMap[id] = true;
+        });
+        setCompleted(completedMap);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchProgress();
+  }, [loggedIn, roadmapId]);
 
-    api
-      .get("/api/Users/progress")
-      .then((res) => {
-        const data = res.data;
+  //----------------------------------------------------------------------------------------------
+  const isTopicDone = (topicId) => !!completed[topicId];
 
-        // Find progress for THIS roadmap
-        const roadmapProgress = (data.items || data).find(
-          (item) => item.roadmapId === parseInt(roadmapId),
-        );
+  const toggleTopic = (topicId) => {
+    setOpenTopics((prev) => ({ ...prev, [topicId]: !prev[topicId] }));
+  };
 
-        if (roadmapProgress && roadmapProgress.completedTopics) {
-          const completedMap = {};
-          roadmapProgress.completedTopics.forEach((topicId) => {
-            completedMap[topicId] = true;
-          });
-          setCompleted(completedMap);
-        }
-      })
-      .catch((err) => console.error("progress fetch error", err));
-  }, [roadmapId, loggedIn]);
+  //---------------------------------------------------------------------------------------------
+  // Load user progress from the correct endpoint
+  // useEffect(() => {
+  //   if (!loggedIn) return;
+
+  //   api
+  //     .get("/api/Users/progress")
+  //     .then((res) => {
+  //       const data = res.data;
+
+  //       // Find progress for THIS roadmap
+  //       const roadmapProgress = (data.items || data).find(
+  //         (item) => item.roadmapId === parseInt(roadmapId),
+  //       );
+
+  //       if (roadmapProgress && roadmapProgress.completedTopics) {
+  //         const completedMap = {};
+  //         roadmapProgress.completedTopics.forEach((topicId) => {
+  //           completedMap[topicId] = true;
+  //         });
+  //         setCompleted(completedMap);
+  //       }
+  //     })
+  //     .catch((err) => console.error("progress fetch error", err));
+  // }, [roadmapId, loggedIn]);
 
   useEffect(() => {
     api
@@ -133,63 +159,6 @@ function RoadmapPage() {
     };
   }, [roadmapId, trackId, loggedIn]);
 
-  // useEffect(() => {
-  //   api
-  //     .get(`/api/roadmaps/reviews/${roadmapId}`)
-  //     .then((res) => {
-  //       const items = res.data.items || res.data;
-  //       setReviews(items);
-  //       if (items.length > 0) {
-  //         const avg = items.reduce((sum, r) => sum + r.rate, 0) / items.length;
-  //         setAvgRating(avg.toFixed(1));
-  //       }
-  //     })
-  //     .catch((err) => {
-  //       console.error("Reviews fetch error", err);
-  //     });
-  // }, [roadmapId]);
-
-  // useEffect(() => {
-  //   if (!loggedIn) return;
-  //   api
-  //     .get("/api/bookmarks")
-  //     .then((res) => {
-  //       const items = res.data.items || res.data;
-  //       const map = {};
-  //       items.forEach((b) => {
-  //         map[b.resId] = true;
-  //       });
-  //       setBookmarked(map);
-  //     })
-  //     .catch((err) => {
-  //       console.error("bookmark error", err);
-  //     });
-  // }, [loggedIn]);
-
-  const isTopicDone = (topicId) => !!completed[topicId];
-
-  const toggleTopic = (topicId) => {
-    setOpenTopics((prev) => ({ ...prev, [topicId]: !prev[topicId] }));
-  };
-
-  // const toggleBookmark = async (resId) => {
-  //   if (!loggedIn) {
-  //     navigate("/signin");
-  //     return;
-  //   }
-  //   const wasBookmarked = bookmarked[resId];
-  //   setBookmarked((prev) => ({ ...prev, [resId]: !wasBookmarked }));
-  //   try {
-  //     if (wasBookmarked) {
-  //       await api.delete(`/api/bookmarks/${resId}`);
-  //     } else {
-  //       await api.post(`/api/bookmarks/${resId}`);
-  //     }
-  //   } catch {
-  //     setBookmarked((prev) => ({ ...prev, [resId]: wasBookmarked }));
-  //   }
-  // };
-
   //completed
   const toggleTopicDone = async (topicId) => {
     if (!loggedIn) return;
@@ -207,11 +176,6 @@ function RoadmapPage() {
       // Try sending user info in the request body
       const response = await api.post(
         `/api/Progress/complete-topic/${topicId}`,
-        {
-          userId: user?.email,
-          roadmapId: parseInt(roadmapId),
-          completed: true,
-        },
       );
 
       console.log("POST response:", response.status, response.data);
@@ -222,10 +186,6 @@ function RoadmapPage() {
       );
       const progressMap = savedProgress ? JSON.parse(savedProgress) : {};
       progressMap[topicId] = true;
-      localStorage.setItem(
-        `completed_${roadmapId}_${user?.email}`,
-        JSON.stringify(progressMap),
-      );
     } catch (err) {
       console.error("Failed to complete topic:", err);
       console.error("Error details:", err.response?.data);
