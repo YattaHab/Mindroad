@@ -86,51 +86,55 @@ namespace MindMapManager.WebAPI.Controllers
         {
             if (!ModelState.IsValid)
             {
-                string errorMassege = 
-                    string.Join(" | ", ModelState.Values
+                string errorMessage = string.Join(" | ", ModelState.Values
                     .SelectMany(v => v.Errors)
                     .Select(e => e.ErrorMessage));
-                return BadRequest(errorMassege);
+                return BadRequest(errorMessage);
             }
 
+           
+            var signInResult = await _signInManager.PasswordSignInAsync(
+                loginDTO.Email,
+                loginDTO.Password,
+                isPersistent: loginDTO.RememberMe,
+                lockoutOnFailure: false
+            );
+
+            if (!signInResult.Succeeded)
+                return Problem("Invalid Email or Password", statusCode: StatusCodes.Status400BadRequest);
+
+           
             ApplicationUser? appUser = await _userManager.FindByEmailAsync(loginDTO.Email);
 
-            if (appUser != null)
+            
+            var today = DateTime.UtcNow.Date;
+            if (!appUser!.LastActDate.HasValue)
             {
-                bool IsValidPassword = await _userManager.CheckPasswordAsync(appUser, loginDTO.Password);
-                if (IsValidPassword)
-                {
-                    await _signInManager.SignInAsync(appUser, isPersistent: loginDTO.RememberMe);
-
-                    var authResponse = await _jwtService.CreateJwtTokenAsync(appUser);
-
-                    appUser.RefreshToken = authResponse.RefreshToken;
-                    appUser.RefreshTokenExpiration = authResponse.RefreshTokenExpiration;
-
-                    var today = DateTime.UtcNow.Date;
-                    if (!appUser.LastActDate.HasValue)
-                    {
-                        appUser.Streak = 1;
-                    }
-                    else
-                    {
-                        var lastActive = appUser.LastActDate.Value.Date;
-                        var daysDiff = (today - lastActive).Days;
-                        if (daysDiff == 1)
-                            appUser.Streak += 1;
-                        else if (daysDiff > 1)
-                            appUser.Streak = 1;
-                    }
-
-                    appUser.LastActDate = today;
-                        await _userManager.UpdateAsync(appUser);
-
-                    return Ok(authResponse);
-                }
+                appUser.Streak = 1;
             }
-            return Problem("Invalid Email or Password",statusCode: StatusCodes.Status400BadRequest);
+            else
+            {
+                var daysDiff = (today - appUser.LastActDate.Value.Date).Days;
+                if (daysDiff == 1)
+                    appUser.Streak += 1;
+                else if (daysDiff > 1)
+                    appUser.Streak = 1;
+                
+            }
+
            
+            var authResponse = await _jwtService.CreateJwtTokenAsync(appUser);
+
+          
+            appUser.RefreshToken = authResponse.RefreshToken;
+            appUser.RefreshTokenExpiration = authResponse.RefreshTokenExpiration;
+            appUser.LastActDate = today;
+
+            await _userManager.UpdateAsync(appUser);
+
+            return Ok(authResponse);
         }
+
 
         /// <summary>
         /// logout

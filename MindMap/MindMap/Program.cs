@@ -70,15 +70,38 @@ namespace MindMapManager.WebAPI
             builder.Services.AddScoped<IFileService,FileService>();
 
 
-            builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+            builder.Services.AddDbContext<AppDbContext>(options =>
+                     options.UseSqlServer(
+                     builder.Configuration.GetConnectionString("DefaultConnection"),
+                     sqlOptions =>
+            {
+            
+             sqlOptions.EnableRetryOnFailure(
+                 maxRetryCount: 3,
+                 maxRetryDelay: TimeSpan.FromSeconds(5),
+                 errorNumbersToAdd: null
+             );
+            
+             sqlOptions.CommandTimeout(30);
+            } ) );
+
+
             // Add Identity Services
             builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
             {
                 options.User.RequireUniqueEmail = true;
                 options.Password.RequiredLength = 8;
             })
+
+
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
+
+            
+            builder.Services.Configure<PasswordHasherOptions>(options =>
+            {
+                options.IterationCount = 10_000;
+            });
 
             //authentication cofiguration
             builder.Services.AddAuthentication(options =>
