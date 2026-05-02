@@ -1,421 +1,335 @@
-# MindMapManager API
+# MindRoad API
 
-A RESTful Web API built with ASP.NET Core for managing learning roadmaps, tracks, topics, resources, and community interactions.
+<p align="center">
+  <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white"/>
+  <img src="https://img.shields.io/badge/ASP.NET_Core-Web_API-blue?style=for-the-badge&logo=dotnet"/>
+  <img src="https://img.shields.io/badge/SQL_Server-CC2927?style=for-the-badge&logo=microsoftsqlserver&logoColor=white"/>
+  <img src="https://img.shields.io/badge/JWT-Authentication-orange?style=for-the-badge&logo=jsonwebtokens"/>
+  <img src="https://img.shields.io/badge/Entity_Framework_Core-8.0-purple?style=for-the-badge"/>
+</p>
+
+A production-deployed RESTful Web API for a **structured learning platform** where users follow curated roadmaps across learning tracks, track their progress, earn certificates, and engage with a learning community.
+
+🌐 **Live:** [mindroad.runasp.net](http://mindroad.runasp.net)
 
 ---
 
 ## Table of Contents
 
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [API Reference](#api-reference)
 - [Authentication](#authentication)
-- [Endpoints](#endpoints)
-  - [Account](#account)
-  - [Tracks](#tracks)
-  - [Roadmaps](#roadmaps)
-  - [Topics](#topics)
-  - [Levels](#levels)
-  - [Resources](#resources)
-  - [Reviews](#reviews)
-  - [Bookmarks](#bookmarks)
-  - [Certificates](#certificates)
-  - [Community (Comments)](#community-comments)
-  - [Notifications](#notifications)
-  - [Search](#search)
-  - [Admin](#admin)
-- [Authorization Roles](#authorization-roles)
-- [Error Handling](#error-handling)
+- [Database Schema](#database-schema)
+- [Getting Started](#getting-started)
+- [Environment Configuration](#environment-configuration)
+
+---
+
+## Overview
+
+MindRoad is a learning management platform API built to help users navigate structured learning paths. Users enroll in **Tracks**, progress through **Roadmaps** organized into **Levels** and **Topics**, consume **Resources**, and automatically earn **PDF Certificates** upon completion.
+
+The project follows a clean **3-layer architecture** (Presentation → Business Logic → Data Access), with clear separation of concerns across three class library projects.
+
+---
+
+## Architecture
+
+```
+MindMapManager.WebAPI          → Controllers, Middleware, Program.cs
+MindMapManager.Core            → Entities, DTOs, Service Interfaces, Service Implementations
+MindMapManager.Infrastructure  → DbContext, Repository Implementations, EF Migrations
+```
+
+The system uses the **Repository Pattern** and **Dependency Injection** throughout, keeping services decoupled from data access concerns.
+
+---
+
+## Features
+
+### 👤 Identity & Authentication
+- JWT Bearer token authentication with **refresh token** rotation
+- ASP.NET Core Identity with custom `ApplicationUser`
+- Role-based authorization (`Admin` / `Member`)
+- Password reset via email (MailKit + Gmail SMTP)
+- Email uniqueness validation
+
+### 📚 Learning Content
+- Hierarchical content model: **Track → Roadmap → Level → Topic → Resource**
+- Full CRUD for all content entities (Admin only)
+- Paginated listing with search/filter for Tracks and Roadmaps
+- Featured tracks sorted by enrollment count
+
+### 📈 Progress Tracking
+- Topic completion tracking per user
+- Automatic level progress percentage calculation
+- Roadmap-level progress aggregation
+- Daily streak tracking updated on login and topic completion
+
+### 🏆 Certificates
+- **Auto-issued PDF certificates** when a user completes 100% of a roadmap
+- PDF generation using **QuestPDF**
+- Publicly verifiable certificates via unique certificate code
+- Certificate download endpoint
+
+### 💬 Community
+- Threaded comments on Topics (comments + nested replies)
+- Enrollment-gated access (only enrolled users can comment)
+- Comment deletion by owner or Admin
+
+### ⭐ Reviews & Bookmarks
+- Users can review roadmaps after completing them (1–5 star rating)
+- Resource bookmarking with paginated retrieval
+
+### 🔔 Notifications
+- In-app notifications (e.g., certificate issuance)
+- Mark as read / mark all as read
+- Unread count endpoint
+
+### 🔍 Search
+- Cross-entity search across Tracks, Roadmaps, and Topics in a single query
+
+### 🛠️ Admin Dashboard
+- User management: list, filter, ban/activate, change roles, delete
+- Platform stats: total users, enrollments, certificates, comments, new signups
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | ASP.NET Core 8 Web API |
+| ORM | Entity Framework Core 8 |
+| Database | Microsoft SQL Server |
+| Authentication | JWT Bearer + ASP.NET Identity |
+| PDF Generation | QuestPDF |
+| Email | MailKit (Gmail SMTP) |
+| Documentation | Swagger / OpenAPI (Swashbuckle) |
+| Deployment | IIS (Windows hosting) |
+
+---
+
+## Project Structure
+
+```
+MindMap/
+├── MindMap/                          # Web API layer
+│   ├── Controllers/                  # API controllers
+│   ├── MiddleWares/                  # Global exception handling middleware
+│   └── Program.cs                    # DI registration & pipeline configuration
+│
+├── MindMapManager.Core/              # Business logic layer
+│   ├── DTOs/                         # Request/Response models
+│   ├── Entities/                     # Domain entities & EF view models
+│   ├── Exceptions/                   # Custom exception types
+│   ├── Helpers/                      # PDF generator, paged result helper
+│   ├── RepositoryContracts/          # Repository interfaces
+│   ├── ServiceContracts/             # Service interfaces
+│   └── Services/                     # Service implementations
+│
+└── MindMapManager.Infrastructure/    # Data access layer
+    ├── DatabaseContext/              # EF DbContext with full model configuration
+    ├── Migrations/                   # EF migrations
+    └── Repository/                   # Repository implementations
+```
+
+---
+
+## API Reference
+
+### Authentication — `/api/account`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/register` | Public | Register a new user |
+| `POST` | `/login` | Public | Login and receive JWT + refresh token |
+| `GET` | `/logout` | 🔒 | Logout |
+| `POST` | `/generate-new-jwt-token` | Public | Refresh access token |
+| `POST` | `/forgot-password` | Public | Send password reset email |
+| `POST` | `/reset-password` | Public | Reset password with token |
+| `GET` | `/is-email-already-registered` | Public | Email availability check |
+
+### Tracks — `/api/track`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | Public | Get all tracks (paginated, searchable) |
+| `GET` | `/Featured-tracks` | Public | Get most-enrolled tracks |
+| `GET` | `/{id}` | Public | Get roadmaps in a track |
+| `POST` | `/{id}/enroll` | 🔒 Member | Enroll in a track |
+| `GET` | `/{id}/enrollment-status` | 🔒 | Check enrollment status |
+| `POST` | `/add` | 🔒 Admin | Create a track (with image upload) |
+| `PUT` | `/{id}` | 🔒 Admin | Update a track |
+| `DELETE` | `/{id}` | 🔒 Admin | Delete a track |
+
+### Roadmaps — `/api/roadmap`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | Public | Get all roadmaps (paginated, searchable) |
+| `GET` | `/{id}` | Public | Get full roadmap details with levels, topics, and resources |
+| `POST` | `/` | 🔒 Admin | Create a roadmap |
+| `PUT` | `/{id}` | 🔒 Admin | Update a roadmap |
+| `DELETE` | `/{id}` | 🔒 Admin | Delete a roadmap |
+
+### Progress — `/api/progress`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/roadmap/{roadmapId}` | 🔒 Member | Get progress for a roadmap |
+| `POST` | `/complete-topic/{topicId}` | 🔒 Member | Mark a topic as complete |
+| `DELETE` | `/complete-topic/{topicId}` | 🔒 Member | Unmark a completed topic |
+
+### Certificates — `/api/certificates`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 🔒 | Get my certificates |
+| `GET` | `/{id}` | 🔒 | Get certificate by ID |
+| `GET` | `/{id}/download` | 🔒 | Download certificate PDF |
+| `GET` | `/verify/{code}` | Public | Verify a certificate by code |
+
+### Community — `/api/topic/{id}/comments`, `/api/comments`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/topic/{id}/comments` | 🔒 | Get threaded comments for a topic |
+| `POST` | `/api/topic/{id}/comments` | 🔒 | Add a comment |
+| `POST` | `/api/comments/{id}/reply` | 🔒 | Reply to a comment |
+| `DELETE` | `/api/comments/{id}` | 🔒 | Delete a comment |
+
+> Users must be enrolled in the track to access community features.
+
+### Additional Endpoints
+
+| Resource | Base Path | Auth |
+|----------|-----------|------|
+| Levels | `/api/level` | Public (GET), Admin (CUD) |
+| Topics | `/api/topic` | Public (GET), Admin (CUD) |
+| Resources | `/api/resource` | Public (GET), Admin (CUD) |
+| Reviews | `/api/roadmap/{id}/reviews` | Public (GET), Member (POST) |
+| Bookmarks | `/api/bookmarks` | 🔒 Member |
+| Notifications | `/api/notifications` | 🔒 |
+| Search | `/api/search?q=` | Public |
+| Admin | `/api/admin` | 🔒 Admin |
+| Users | `/api/users/profile` | 🔒 Member |
 
 ---
 
 ## Authentication
 
-The API uses **JWT Bearer Tokens** with refresh token support.
+The API uses **JWT Bearer tokens** with refresh token rotation.
 
-Include the token in the `Authorization` header:
+```http
+Authorization: Bearer <your_access_token>
+```
 
-```
-Authorization: Bearer <your_token>
-```
+**Token flow:**
+1. `POST /api/account/login` → receive `token` + `refreshToken`
+2. Use `token` in `Authorization` header for protected routes
+3. When token expires, call `POST /api/account/generate-new-jwt-token` with both tokens to get a new pair
 
 ---
 
-## Endpoints
+## Database Schema
 
-### Account
+The data model supports a hierarchical learning structure:
 
-Base: `/api/account`
+```
+Track
+ └── Roadmap
+      └── Level
+           └── Topic
+                └── Resource
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/register` | Public | Register a new user |
-| POST | `/login` | Public | Login and receive JWT token |
-| GET | `/logout` | 🔒 Required | Logout current user |
-| POST | `/generate-new-jwt-token` | Public | Refresh JWT using refresh token |
-| POST | `/forgot-password` | Public | Request a password reset email |
-| POST | `/reset-password` | Public | Reset password using token |
-| GET | `/is-email-already-registered?email=` | Public | Check if email is taken |
+User
+ ├── UserTrack (enrollment)
+ ├── Progress (per level)
+ ├── CompletedTopic
+ ├── Certificate
+ ├── Review
+ ├── Bookmark (Resource)
+ ├── Comment / UserComment
+ └── Notification
+```
 
-**Register Request Body:**
+The database also includes several **SQL views** (`vw_leaderboard`, `vw_roadmap_stats`, `vw_user_progress`, etc.) mapped as keyless entities in EF Core for efficient reporting queries.
+
+---
+
+## Error Handling
+
+All exceptions are caught by a global **`ExceptionHandlingMiddleware`** and mapped to appropriate HTTP responses:
+
+| Exception | Status Code |
+|-----------|-------------|
+| `BadRequestException` | `400 Bad Request` |
+| `NotFoundException` | `404 Not Found` |
+| `ConflictException` | `409 Conflict` |
+| `ForbiddenException` | `403 Forbidden` |
+| Unhandled `Exception` | `500 Internal Server Error` |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- .NET 8 SDK
+- SQL Server (local or remote)
+- Visual Studio 2022 or VS Code
+
+### Setup
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd MindMap
+
+# Restore packages
+dotnet restore
+
+# Apply database migrations
+dotnet ef database update --project MindMapManager.Infrastructure --startup-project MindMap
+
+# Run the API
+dotnet run --project MindMap
+```
+
+Swagger UI will be available at: `https://localhost:7281/swagger`
+
+---
+
+## Environment Configuration
+
+Configure `appsettings.json` in the `MindMap` project:
+
 ```json
 {
-  "name": "string",
-  "email": "string",
-  "password": "string"
-}
-```
-
-**Login Request Body:**
-```json
-{
-  "email": "string",
-  "password": "string",
-  "rememberMe": true
-}
-```
-
-**Refresh Token Request Body:**
-```json
-{
-  "token": "string",
-  "refreshToken": "string"
-}
-```
-
----
-
-### Tracks
-
-Base: `/api/track`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/` | Public | Get all tracks (paginated) |
-| GET | `/Featured-tracks?amount=4` | Public | Get most-enrolled tracks |
-| GET | `/{id}` | Public | Get roadmaps by track ID |
-| POST | `/add` | 🔒 Admin | Add a new track |
-| PUT | `/{id}` | 🔒 Admin | Update a track |
-| DELETE | `/{id}` | 🔒 Admin | Delete a track |
-
-**Query Parameters (GET /):**
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `page` | 1 | Page number |
-| `pageSize` | 6 | Items per page |
-| `searchTirm` | null | Search keyword |
-
----
-
-### Roadmaps
-
-Base: `/api/roadmap`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/` | Public | Get all roadmaps (paginated) |
-| GET | `/{id}` | Public | Get roadmap details |
-| POST | `/` | 🔒 Admin | Add a new roadmap |
-| PUT | `/{id}` | 🔒 Admin | Update a roadmap |
-| DELETE | `/{id}` | 🔒 Admin | Delete a roadmap |
-
-**Query Parameters (GET /):**
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `page` | 1 | Page number |
-| `pageSize` | 6 | Items per page |
-| `searchTirm` | null | Search keyword |
-
----
-
-### Topics
-
-Base: `/api/topic`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/{id}` | Public | Get topic with details |
-| POST | `/` | 🔒 Admin | Add a new topic |
-| PUT | `/{id}` | 🔒 Admin | Update a topic |
-| DELETE | `/{id}` | 🔒 Admin | Delete a topic |
-
----
-
-### Levels
-
-Base: `/api/level`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/{id}` | Public | Get level with details |
-| POST | `/` | 🔒 Admin | Add a new level |
-| PUT | `/{id}` | 🔒 Admin | Update a level |
-| DELETE | `/{id}` | 🔒 Admin | Delete a level |
-
----
-
-### Resources
-
-Base: `/api/resource`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/{id}` | Public | Get resource with details |
-| POST | `/` | 🔒 Admin | Add a new resource |
-| PUT | `/{id}` | 🔒 Admin | Update a resource |
-| DELETE | `/{id}` | 🔒 Admin | Delete a resource |
-
----
-
-### Reviews
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/roadmaps/{id}/reviews` | Public | Get reviews for a roadmap |
-| POST | `/api/roadmaps/{id}/reviews` | 🔒 Required | Add a review |
-| DELETE | `/api/reviews/{id}` | 🔒 Required | Delete a review (own or Admin) |
-
-**Query Parameters (GET reviews):**
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `page` | 1 | Page number |
-| `pageSize` | 10 | Items per page |
-
-**Add Review Request Body:**
-```json
-{
-  "content": "string",
-  "rate": 5
-}
-```
-
----
-
-### Bookmarks
-
-Base: `/api/bookmarks`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/` | 🔒 Required | Get my bookmarks (paginated) |
-| POST | `/{resourceId}` | 🔒 Required | Add a bookmark |
-| DELETE | `/{resourceId}` | 🔒 Required | Remove a bookmark |
-
-**Query Parameters (GET /):**
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `page` | 1 | Page number |
-| `pageSize` | 10 | Items per page |
-
-**Response (GET /):**
-```json
-{
-  "items": [
-    {
-      "resId": 0,
-      "name": "string",
-      "type": "string",
-      "resUrl": "string",
-      "paid": false
-    }
-  ],
-  "totalCount": 0,
-  "page": 1,
-  "pageSize": 10,
-  "totalPages": 0,
-  "hasNext": false,
-  "hasPrevious": false
-}
-```
-
----
-
-### Certificates
-
-Base: `/api/certificates`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/` | 🔒 Required | Get my certificates |
-| GET | `/{id}` | 🔒 Required | Get certificate by ID |
-
-**Response:**
-```json
-{
-  "certId": 0,
-  "certUrl": "string",
-  "issuedAt": "datetime",
-  "roadmapId": 0
-}
-```
-
----
-
-### Community (Comments)
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/topics/{id}/comments` | 🔒 Required | Get comments on a topic |
-| POST | `/api/topics/{id}/comments` | 🔒 Required | Add a comment to a topic |
-| POST | `/api/comments/{id}/reply` | 🔒 Required | Reply to a comment |
-| DELETE | `/api/comments/{id}` | 🔒 Required | Delete own comment |
-| DELETE | `/api/admin/comments/{id}` | 🔒 Admin | Admin delete any comment |
-
-> ⚠️ User must be enrolled in the track to access community features. Returns `403 Forbidden` if not enrolled.
-
-**Add Comment / Reply Request Body:**
-```json
-{
-  "content": "string"
-}
-```
-
-**Response (GET comments):**
-```json
-[
-  {
-    "comId": 0,
-    "content": "string",
-    "createdAt": "datetime",
-    "userId": 0,
-    "replies": [
-      {
-        "comId": 0,
-        "content": "string",
-        "createdAt": "datetime",
-        "userId": 0,
-        "replies": []
-      }
-    ]
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=...;Database=mind_road;..."
+  },
+  "Jwt": {
+    "Issuer": "https://localhost:7281",
+    "Audience": "https://localhost:4200",
+    "Expiration_Days": 7,
+    "SecretKey": "<your-secret-key>"
+  },
+  "RefreshToken": {
+    "Expiration_Days": 30
+  },
+  "EmailConfiguration": {
+    "From": "<your-email>",
+    "MailServer": "smtp.gmail.com",
+    "MailPort": 465,
+    "UserName": "Display Name",
+    "Password": "<app-password>"
   }
-]
-```
-
----
-
-### Notifications
-
-Base: `/api/notifications`
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/` | 🔒 Required | Get my notifications (paginated) |
-| GET | `/unread-count` | 🔒 Required | Get unread notification count |
-| PUT | `/{id}/read` | 🔒 Required | Mark a notification as read |
-| PUT | `/read-all` | 🔒 Required | Mark all notifications as read |
-
-**Query Parameters (GET /):**
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `page` | 1 | Page number |
-| `pageSize` | 10 | Items per page |
-
-**Response (GET /):**
-```json
-{
-  "items": [
-    {
-      "notId": 0,
-      "message": "string",
-      "read": false,
-      "createdAt": "datetime",
-      "refType": "string",
-      "refId": 0
-    }
-  ],
-  "totalCount": 0,
-  "page": 1,
-  "pageSize": 10,
-  "totalPages": 0,
-  "hasNext": false,
-  "hasPrevious": false
-}
-```
-
----
-
-### Search
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/search` | Public | Search across all content |
-
-**Query Parameters:**
-
-| Param | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `q` | ✅ Yes | - | Search keyword |
-| `page` | No | 1 | Page number |
-| `pageSize` | No | 10 | Items per page |
-
-**Response:**
-```json
-{
-  "tracks": [
-    { "trackId": 0, "name": "string", "description": "string" }
-  ],
-  "roadmaps": [
-    { "rid": 0, "name": "string", "description": "string" }
-  ],
-  "topics": [
-    { "topicId": 0, "name": "string" }
-  ]
-}
-```
-
----
-
-### Admin
-
-Base: `/api/admin` — requires **Admin** role.
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/users` | Get all users (filterable + paginated) |
-| GET | `/users/{id}` | Get user by ID |
-| PUT | `/users/{id}/status` | Change user status |
-| PUT | `/users/{id}/role` | Change user role |
-| DELETE | `/users/{id}` | Delete a user |
-| GET | `/dashboard` | Get dashboard stats |
-| DELETE | `/comments/{id}` | Delete any comment |
-
-**Query Parameters (GET /users):**
-
-| Param | Default | Description |
-|-------|---------|-------------|
-| `status` | null | Filter by status (Active/Banned) |
-| `search` | null | Search by name or email |
-| `page` | 1 | Page number |
-| `pageSize` | 10 | Items per page |
-
-**Change Status Request Body:**
-```json
-{
-  "status": "Active | Banned"
-}
-```
-
-**Change Role Request Body:**
-```json
-{
-  "role": "Admin | Member"
-}
-```
-
-**Dashboard Response:**
-```json
-{
-  "totalUsers": 0,
-  "activeUsers": 0,
-  "totalTracks": 0,
-  "totalRoadmaps": 0,
-  "totalEnrollments": 0,
-  "totalCertificates": 0,
-  "totalComments": 0,
-  "newUsersThisWeek": 0,
-  "newUsersThisMonth": 0
 }
 ```
 
@@ -423,27 +337,11 @@ Base: `/api/admin` — requires **Admin** role.
 
 ## Authorization Roles
 
-| Role | Access Level |
+| Role | Description |
 |------|-------------|
-| `Member` | Assigned on registration. Can bookmark, review, comment, and manage their own content. |
-| `Admin` | Full access to all endpoints including user management, content CRUD, and admin dashboard. |
+| `Member` | Assigned on registration. Can enroll, track progress, review, bookmark, and interact with the community. |
+| `Admin` | Full platform access including content management, user administration, and dashboard analytics. |
 
 ---
 
-## Error Handling
-
-The API returns standard HTTP status codes:
-
-| Code | Meaning |
-|------|---------|
-| `200 OK` | Success |
-| `201 Created` | Resource created |
-| `204 No Content` | Operation successful, no body |
-| `400 Bad Request` | Validation error or bad input |
-| `401 Unauthorized` | Missing or invalid JWT token |
-| `403 Forbidden` | Insufficient permissions |
-| `404 Not Found` | Resource does not exist |
-| `409 Conflict` | Resource already exists (e.g., duplicate email) |
-| `500 Internal Server Error` | Unexpected server error |
-
-Error responses return a plain string message or a `ProblemDetails` object describing the issue.
+<p align="center">Built with ASP.NET Core 8 · Deployed at <a href="http://mindroad.runasp.net">mindroad.runasp.net</a></p>
