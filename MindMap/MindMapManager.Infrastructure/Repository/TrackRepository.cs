@@ -71,23 +71,21 @@ namespace MindMapManager.Infrastructure.Repository
             _context.SaveChanges();
         }
 
-        public IQueryable<Track> Search(string? SearchTirm)
+        
+        public IQueryable<Track> Search(string? searchTerm)
         {
-            if(string.IsNullOrWhiteSpace(SearchTirm))
-                return Get();
+            var query = Get();
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return query;
 
-            var key = SearchTirm.ToLower().Trim();
-
-            bool result = Get().Any(t => t.Name.ToLower().Contains(key) ||
-                                         t.Description.ToLower().Contains(key));
-
-            if(!result) return Get();
-
-            return Get()
-                .Where(t => t.Name.ToLower().Contains(key) ||
+            var key = searchTerm.ToLower().Trim();
+            return query.Where(t =>
+                t.Name.ToLower().Contains(key) ||
                 t.Description.ToLower().Contains(key));
-
         }
+
+
+
 
         public void Update(Track track)
         {

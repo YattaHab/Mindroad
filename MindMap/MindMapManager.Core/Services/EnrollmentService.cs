@@ -27,43 +27,35 @@ namespace MindMapManager.Core.Services
             var track = _trackRepo.GetWithRoadmapsAndLevels(trackId);
 
             if (track == null)
-            {
                 throw new NotFoundException("track is not found");
-            }
 
-            var isEnrolled = _userTrackRepo.IsEnrolled(userId, trackId);
-
-            if (isEnrolled)
-            {
+            if (_userTrackRepo.IsEnrolled(userId, trackId))
                 throw new ConflictException("user already enrolled");
-            }
 
-            UserTrack userTrack = new UserTrack();
-            userTrack.trackId = trackId;
-            userTrack.userId = userId;
-            userTrack.EnrolledAt = DateTime.Now;
-
-            _userTrackRepo.add(userTrack);
-
-            foreach (var roadmap in track.Roadmaps)
+            _userTrackRepo.add(new UserTrack
             {
-                foreach (var level in roadmap.Levels)
+                trackId = trackId,
+                userId = userId,
+                EnrolledAt = DateTime.UtcNow 
+            });
+
+            var progressRecords = track.Roadmaps
+                .SelectMany(r => r.Levels)
+                .Select(level => new Progress
                 {
-                    _progressRepo.Add(new Progress
-                    {
-                        UserId = userId,
-                        Lid = level.Lid,
-                        CompPerc = 0
-                    });
-                }
-            }
+                    UserId = userId,
+                    Lid = level.Lid,
+                    CompPerc = 0
+                }).ToList();
+
+            _progressRepo.AddRange(progressRecords);
             _userTrackRepo.Save();
 
-            return new enrollResponseDto()
+            return new enrollResponseDto
             {
                 trackId = trackId,
                 trackName = track.Name,
-                EnrolledAt = DateTime.Now,
+                EnrolledAt = DateTime.UtcNow,
                 enrolledMessage = $"successfully enrolled in {track.Name}"
             };
         }

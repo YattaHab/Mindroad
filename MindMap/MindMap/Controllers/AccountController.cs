@@ -40,41 +40,44 @@ namespace MindMapManager.WebAPI.Controllers
         {
             if (!ModelState.IsValid)
             {
-                string ErrorMassege = 
-                    string.Join(" | ",ModelState.Values
-                    .SelectMany(v=> v.Errors)
+                string errorMessage = string.Join(" | ", ModelState.Values
+                    .SelectMany(v => v.Errors)
                     .Select(error => error.ErrorMessage));
-                return BadRequest(ErrorMassege);
+                return BadRequest(errorMessage);
             }
-            ApplicationUser appuser = new ApplicationUser();
-            appuser.Email = registerDTO.Email;
-            appuser.UserName = registerDTO.UserName;
-            appuser.FullName = registerDTO.FullName;
 
-            IdentityResult result = await _userManager.CreateAsync(appuser,registerDTO.Password);
+            ApplicationUser appuser = new ApplicationUser
+            {
+                Email = registerDTO.Email,
+                UserName = registerDTO.UserName,
+                FullName = registerDTO.FullName,
+                CreatedAt = DateTime.UtcNow,    
+                Streak = 0,                    
+                Status = "Active"              
+            };
+
+            IdentityResult result = await _userManager.CreateAsync(appuser, registerDTO.Password);
 
             if (!result.Succeeded)
             {
                 string errorMessage = string.Join(" | ", result.Errors.Select(error => error.Description));
-                return Problem(errorMessage,statusCode: StatusCodes.Status409Conflict);
+                return Problem(errorMessage, statusCode: StatusCodes.Status409Conflict);
             }
-             
-            await _signInManager.SignInAsync(appuser, isPersistent: false);
 
             await _userManager.AddToRoleAsync(appuser, "Member");
 
-            // create token
-            var authRespnse = await _jwtService.CreateJwtTokenAsync(appuser);
+            var authResponse = await _jwtService.CreateJwtTokenAsync(appuser);
 
-            appuser.RefreshToken = authRespnse.RefreshToken;
-            appuser.RefreshTokenExpiration = authRespnse.RefreshTokenExpiration;
-
-            appuser.CreatedAt = DateTime.UtcNow;
+          
+            appuser.RefreshToken = authResponse.RefreshToken;
+            appuser.RefreshTokenExpiration = authResponse.RefreshTokenExpiration;
 
             await _userManager.UpdateAsync(appuser);
-            
-            return Ok(authRespnse);
+
+            return Ok(authResponse);
+           
         }
+
 
         /// <summary>
         /// login

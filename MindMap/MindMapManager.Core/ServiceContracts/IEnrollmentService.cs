@@ -1,4 +1,5 @@
 ﻿using MindMapManager.Core.DTOs;
+using MindMapManager.Core.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;

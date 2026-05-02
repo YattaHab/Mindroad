@@ -177,25 +177,27 @@ namespace MindMapManager.Core.Services
 
         private async Task UpdateStreak(int userId)
         {
-            var appUser = _userManager.FindByIdAsync(userId.ToString());
+            var appUser = await _userManager.FindByIdAsync(userId.ToString()); 
+
+            if (appUser == null) return;
 
             var today = DateTime.UtcNow.Date;
-            if (!appUser.Result!.LastActDate.HasValue)
+            if (!appUser.LastActDate.HasValue)
             {
-                appUser.Result!.Streak = 1;
+                appUser.Streak = 1;
             }
             else
             {
-                var lastActive = appUser.Result!.LastActDate.Value.Date;
-                var daysDiff = (today - lastActive).Days;
+                var daysDiff = (today - appUser.LastActDate.Value.Date).Days;
                 if (daysDiff == 1)
-                    appUser.Result!.Streak += 1;
+                    appUser.Streak += 1;
                 else if (daysDiff > 1)
-                    appUser.Result!.Streak = 1;
+                    appUser.Streak = 1;
+                
             }
 
-            appUser.Result!.LastActDate = today;
-            await _userManager.UpdateAsync(appUser.Result!);
+            appUser.LastActDate = today;
+            await _userManager.UpdateAsync(appUser);
         }
     }
 }

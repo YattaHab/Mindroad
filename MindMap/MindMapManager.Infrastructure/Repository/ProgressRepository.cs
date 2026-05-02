@@ -55,6 +55,10 @@ namespace MindMapManager.Infrastructure.Repository
         {
             _context.SaveChanges();
         }
+        public void AddRange(IEnumerable<Progress> progresses)
+        {
+            _context.Progresses.AddRange(progresses);
+        }
     }
 }
 
