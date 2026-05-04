@@ -8,10 +8,12 @@ export default function FeaturedTracks() {
 
   useEffect(() => {
     api
-      .get("/api/Track/Featured-tracks")
+      .get("/api/Track/Featured-tracks", {
+        params: { amount: 4 },
+      })
       .then((res) => {
         console.log("FEATURED TRACKS:", res.data);
-        setTracks(res.data.items || res.data);
+        setTracks(res.data);
       })
       .catch((err) => console.log(err));
   }, []);
@@ -40,7 +42,7 @@ export default function FeaturedTracks() {
           >
             {/* card top */}
             <img
-              src={track.trackIcon}
+              src={`https://mindroad.runasp.net/${track.trackIcon}`}
               alt={track.trackName}
               className="w-full h-40 object-cover"
             />

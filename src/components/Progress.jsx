@@ -19,11 +19,17 @@ export default function Progress() {
     const fetchUserProgress = async () => {
       try {
         const response = await api.get("/api/Users/progress");
-        const data = response.data;
+        const data = response.data || [];
 
-        const progressData = data.items || data || [];
+        const flattened = data.flatMap((track) =>
+          (track.roadmaps || []).map((roadmap) => ({
+            ...roadmap,
+            trackId: track.trackId,
+            trackName: track.trackName,
+          })),
+        );
 
-        setUserProgress(progressData);
+        setUserProgress(flattened);
       } catch (err) {
         console.error("Progress fetch error:", err);
         setError("Failed to load your progress");
@@ -80,7 +86,6 @@ export default function Progress() {
     return (
       <section className="bg-gray-100 px-10 py-20 text-center">
         <div className="max-w-md mx-auto">
-          <div className="text-6xl mb-6">📊</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
             No Progress Yet
           </h2>
@@ -120,21 +125,23 @@ export default function Progress() {
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-gray-500">Progress</span>
                 <span className="text-primary font-bold">
-                  {item.progress || item.comp_perc || 0}%
+                  {item.percentage || 0}%
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${item.progress || item.comp_perc || 0}%` }}
+                  style={{ width: `${item.percentage || 0}%` }}
                 />
               </div>
             </div>
 
-            {item.lastTopic && (
+            {item.lastTopicCompleted && (
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                <p className="text-gray-400 text-xs">Last: {item.lastTopic}</p>
+                <p className="text-gray-400 text-xs">
+                  Last: {item.lastTopicCompleted}
+                </p>
               </div>
             )}
           </Link>

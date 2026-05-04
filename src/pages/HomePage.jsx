@@ -9,13 +9,33 @@ import PricingSec from "../components/PricingSec";
 import Footer from "../components/Footer";
 import Progress from "../components/Progress";
 
-import { getCurrentUser, isLoggedIn } from "../services/authService";
+import api from "../services/api";
+
+import { getCurrentUser, isLoggedIn, saveAuth } from "../services/authService";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 function HomePage() {
   const loggedIn = isLoggedIn();
-  const user = getCurrentUser();
+  const [user, setUser] = useState(getCurrentUser());
+
+  //fetch profile data (streak, name, img)
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    api.get("/api/Users/profile").then((res) => {
+      const profile = res.data;
+      const updatedUser = {
+        ...getCurrentUser(),
+        name: profile.fullName,
+        streak: profile.streak,
+      };
+      saveAuth(localStorage.getItem("token"), updatedUser);
+      setUser(updatedUser);
+      console.log("user state:", user);
+    });
+  }, [loggedIn]);
 
   return (
     <div>
@@ -29,7 +49,6 @@ function HomePage() {
         <Navbar isLoggedIn={loggedIn} user={user} />
         <HeroSection isLoggedIn={loggedIn} user={user} />
         <hr className="border-[#0d1031] mx-10" />
-
         <StatsBar />
       </div>
 

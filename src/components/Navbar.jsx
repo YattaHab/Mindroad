@@ -1,23 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "../assets/logo.png";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import UserSidebar from "./UserSidebar";
 import { isLoggedIn, getCurrentUser } from "../services/authService";
 
-export default function Navbar() {
-  useEffect(() => {
-    console.log(
-      "Navbar re-render - loggedIn:",
-      isLoggedIn(),
-      "user:",
-      getCurrentUser(),
-    );
-  }, []);
+export default function Navbar({ user: userProp }) {
   const location = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
 
   const loggedIn = isLoggedIn();
-  const user = getCurrentUser();
+  const user = userProp || getCurrentUser();
 
   const navLinks = [
     { to: "/tracks", label: "Tracks" },

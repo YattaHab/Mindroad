@@ -4,43 +4,61 @@ import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import api from "../services/api";
 import { saveAuth } from "../services/authService";
 
+const passwordRules = [
+  { label: "At least 8 characters", test: (p) => p.length >= 8 },
+  { label: "One uppercase letter (A-Z)", test: (p) => /[A-Z]/.test(p) },
+  {
+    label: "One special character (!@#$...)",
+    test: (p) => /[^a-zA-Z0-9]/.test(p),
+  },
+];
+
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
+  const [userName, setUserName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agree, setAgree] = useState(false);
+  const [passwordTouced, setPasswordTouched] = useState(false);
 
   const [errors, setErrors] = useState({});
 
   const navigate = useNavigate();
+
   const handleRegister = async () => {
     setErrors({});
-    const newErrors = {};
+    const Errors = {};
 
-    if (!fullName) newErrors.fullName = "Full name is required";
-    if (!email) newErrors.email = "Email is required";
+    if (!fullName) Errors.fullName = "Full name is required";
+    else if (fullName.length < 3)
+      Errors.fullName = "Fullname must be at least 3 charachters";
+    if (!userName) Errors.userName = "Username is required";
+    else if (userName.length < 3)
+      Errors.userName = "Username must be at least 3 charachters";
+    if (!email) Errors.email = "Email is required";
 
-    if (!password) newErrors.password = "Password is required";
-    else if (password.length < 6)
-      newErrors.password = "Password must be at least 6 characters";
+    if (!password) Errors.password = "Password is required";
+    else if (!passwordRules.every((r) => r.test(password)))
+      Errors.password = "Password does not meet all requirments";
 
     if (!confirmPassword)
-      newErrors.confirmPassword = "Please confirm your password";
+      Errors.confirmPassword = "Please confirm your password";
     else if (password !== confirmPassword)
-      newErrors.confirmPassword = "Passwords do not match";
+      Errors.confirmPassword = "Passwords do not match";
 
-    if (!agree) newErrors.agree = "You must agree to the terms";
+    if (!agree) Errors.agree = "You must agree to the terms";
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+    if (Object.keys(Errors).length > 0) {
+      setErrors(Errors);
       return;
     }
 
     try {
       const res = await api.post("/api/Account/register", {
-        name: fullName,
+        fullName,
+        userName,
         email,
         password,
         confirmPassword,
@@ -48,7 +66,7 @@ export default function SignUpForm() {
 
       const data = res.data;
 
-      const token = data.token || data.jwtToken;
+      const token = data?.token || data?.jwtToken;
 
       if (token) {
         saveAuth(token, {
@@ -58,12 +76,13 @@ export default function SignUpForm() {
         });
         navigate("/");
       } else {
-        navigate("/signin");
+        navigate("/signin", {
+          state: { message: "Registration successful! Please sign in." },
+        });
       }
     } catch (err) {
-      console.log(err);
       setErrors({
-        genral: err.response?.data?.message || "Registration failed",
+        general: err.response?.data?.message || "Registration failed",
       });
     }
   };
@@ -101,6 +120,26 @@ export default function SignUpForm() {
         )}
       </div>
 
+      {/* username */}
+      <div className="mb-3">
+        <label htmlFor="username" className="block font-semibold mb-1">
+          Username
+        </label>
+        <div className="flex items-center border rounded-xl px-3 py-2 gap-2">
+          <User size={16} className="text-gray-400" />
+          <input
+            type="text"
+            placeholder="johndoe123"
+            id="username"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            className="outline-none"
+          />
+        </div>
+        {errors.userName && (
+          <p className="text-red-500 text-sm mt-1">{errors.userName}</p>
+        )}
+      </div>
       {/* email */}
       <div className="mb-3">
         <label htmlFor="email" className="block font-semibold mb-1">
@@ -134,15 +173,16 @@ export default function SignUpForm() {
             <Lock size={16} className="text-gray-400" />
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Min.6 characters"
+              placeholder="Password"
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => setPasswordTouched(true)}
               className="outline-none"
             />
           </div>
 
-          <button onClick={() => setShowPassword(!showPassword)} className="">
+          <button onClick={() => setShowPassword(!showPassword)}>
             {showPassword ? (
               <EyeOff size={16} className="text-gray-400" />
             ) : (
@@ -150,8 +190,21 @@ export default function SignUpForm() {
             )}
           </button>
         </div>
-        {errors.password && (
-          <p className="text-red-500 text-sm mb-2">{errors.password}</p>
+        {(passwordTouced || errors.password) && (
+          <ul className="mt-2 flex flex-col gap-1">
+            {passwordRules.map((rule) => {
+              const passed = rule.test(password);
+              return (
+                <li
+                  key={rule.label}
+                  className={`text-xs flex items-center gap-1.5 ${passed ? "text-green-600" : "text-red-500"}`}
+                >
+                  <span>{passed ? "✓" : "✗"}</span>
+                  {rule.label}
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
       {/* confirm pass */}

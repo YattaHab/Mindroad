@@ -81,7 +81,7 @@ function AllTracksPage() {
               >
                 {/* card top */}
                 <img
-                  src={track.trackIcon}
+                  src={`https://mindroad.runasp.net/${track.trackIcon}`}
                   alt={track.trackName}
                   className="w-full h-40 object-cover"
                 />

@@ -45,6 +45,7 @@ export default function SignInForm() {
         alert("No token received");
         return;
       }
+      api.defaults.headers.common.Authorization = `Bearer ${token}`;
       let name = email.split("@")[0];
 
       try {
@@ -55,14 +56,14 @@ export default function SignInForm() {
       } catch {
         console.log("Token decode failed");
       }
-
+      const profileRes = await api.get("/api/Users/profile");
+      const profile = profileRes.data;
       saveAuth(token, {
         email,
-        name,
-        image: null,
+        name: profile.fullName || name,
+        image: profile.image || null,
+        streak: profile.streak || 0,
       });
-      alert("Login successful");
-
       navigate("/");
     } catch (err) {
       console.log(err);

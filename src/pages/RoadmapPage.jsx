@@ -16,23 +16,13 @@ import {
   SquareCheck,
   Square,
   MessageCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../services/api";
 import { getCurrentUser, isLoggedIn } from "../services/authService";
-
-//if (loading)
-// Load completed from localStorage
-// useEffect(() => {
-//   const saved = localStorage.getItem(`completed_${roadmapId}`);
-//   if (saved) {
-//     try {
-//       setCompleted(JSON.parse(saved));
-//     } catch {
-//       setCompleted({});
-//     }
-//   }
-// }, [roadmapId]);
+import StarRating from "../components/StarRating";
 
 function RoadmapPage() {
   const loggedIn = isLoggedIn();
@@ -49,62 +39,25 @@ function RoadmapPage() {
 
   const [activeTab, setActiveTab] = useState("overview");
   const [openTopics, setOpenTopics] = useState({});
+
+  //topics
   const [completed, setCompleted] = useState({});
+  const [completingTopic, setCompletingTopic] = useState(null);
+
+  const [progressLastTopic, setProgressLastTopic] = useState("");
+
+  //bookmarks
   const [bookmarked, setBookmarked] = useState({});
+  const [bookmarkLoading, setBookmarkLoading] = useState({});
 
-  //progresssss
-  useEffect(() => {
-    if (!loggedIn) return;
-    const fetchProgress = async () => {
-      try {
-        const res = await api.get(`/api/Progress/roadmap/${roadmapId}`);
-        console.log("progress data", res.data);
-        const completedMap = {};
-        res.data.forEach((item) => {
-          const id = item.topicId ?? item;
-          completedMap[id] = true;
-        });
-        setCompleted(completedMap);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchProgress();
-  }, [loggedIn, roadmapId]);
+  //review
+  const [reviewContent, setReviewContent] = useState("");
+  const [reviewRate, setReviewRate] = useState(0);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState(null);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
 
-  //----------------------------------------------------------------------------------------------
-  const isTopicDone = (topicId) => !!completed[topicId];
-
-  const toggleTopic = (topicId) => {
-    setOpenTopics((prev) => ({ ...prev, [topicId]: !prev[topicId] }));
-  };
-
-  //---------------------------------------------------------------------------------------------
-  // Load user progress from the correct endpoint
-  // useEffect(() => {
-  //   if (!loggedIn) return;
-
-  //   api
-  //     .get("/api/Users/progress")
-  //     .then((res) => {
-  //       const data = res.data;
-
-  //       // Find progress for THIS roadmap
-  //       const roadmapProgress = (data.items || data).find(
-  //         (item) => item.roadmapId === parseInt(roadmapId),
-  //       );
-
-  //       if (roadmapProgress && roadmapProgress.completedTopics) {
-  //         const completedMap = {};
-  //         roadmapProgress.completedTopics.forEach((topicId) => {
-  //           completedMap[topicId] = true;
-  //         });
-  //         setCompleted(completedMap);
-  //       }
-  //     })
-  //     .catch((err) => console.error("progress fetch error", err));
-  // }, [roadmapId, loggedIn]);
-
+  //fetch track
   useEffect(() => {
     api
       .get("/api/Track")
@@ -117,6 +70,7 @@ function RoadmapPage() {
       .catch((err) => console.error("track fetch error", err));
   }, [trackId]);
 
+  //fetch roadmap
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -129,21 +83,6 @@ function RoadmapPage() {
         const rm = res.data;
         setRoadmap(rm);
         setLevels(rm.levelResoponses || []);
-
-        // Save enrollment when roadmap loads successfully
-        if (loggedIn && trackId && roadmapId) {
-          const enrolled = JSON.parse(
-            localStorage.getItem("enrolledTracks") || "[]",
-          );
-          if (!enrolled.some((e) => e.roadmapId === parseInt(roadmapId))) {
-            enrolled.push({
-              trackId: parseInt(trackId),
-              roadmapId: parseInt(roadmapId),
-              startedAt: new Date().toISOString(),
-            });
-            localStorage.setItem("enrolledTracks", JSON.stringify(enrolled));
-          }
-        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -157,87 +96,203 @@ function RoadmapPage() {
     return () => {
       cancelled = true;
     };
-  }, [roadmapId, trackId, loggedIn]);
+  }, [roadmapId]);
 
-  //completed
-  const toggleTopicDone = async (topicId) => {
+  //fetch progress
+  useEffect(() => {
     if (!loggedIn) return;
-    if (completed[topicId]) return;
 
-    console.log(`Completing topic: ${topicId} for user:`, user?.email);
+    api
+      .get(`/api/Progress/roadmap/${roadmapId}`)
+      .then((res) => {
+        console.log("FULL PROGRESS RESPONSE:", res.data);
+        const data = res.data.result;
+        setProgressLastTopic(data.lastTopicCompleted);
+        console.log("PROGRESS RESULT:", data);
+        const completedMap = {};
 
-    // Update UI immediately
+        if (data && Array.isArray(data.completedTopics)) {
+          data.completedTopics.forEach((id) => {
+            completedMap[Number(id)] = true;
+          });
+        }
+
+        setCompleted(completedMap);
+      })
+      .catch((err) => {
+        if (err.response?.status !== 404) {
+          console.error("progress fetch error", err);
+        }
+      });
+  }, [loggedIn, roadmapId]);
+
+  //fetch bookmarks
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    api
+      .get("/api/Bookmarks?page=1&pageSize=100")
+      .then((res) => {
+        const items = res.data.items || res.data || [];
+        const map = {};
+        items.forEach((item) => {
+          const id = item.resId ?? item.resourceId;
+          if (id != null) map[id] = true;
+        });
+        setBookmarked(map);
+      })
+      .catch((err) => console.error("bookmarks fetch error", err));
+  }, [loggedIn]);
+
+  //fetch reviews
+  const fetchReviews = useCallback(() => {
+    api
+      .get(`/api/Roadmap/${roadmapId}/reviews?page=1&pageSize=20`)
+      .then((res) => {
+        const items = res.data.items || res.data || [];
+        setReviews(items);
+        if (items.length > 0) {
+          const avg =
+            items.reduce((sum, r) => sum + (r.rate || 0), 0) / items.length;
+          setAvgRating(avg.toFixed(1));
+        }
+      })
+      .catch((err) => console.error("reviews fetch error", err));
+  }, [roadmapId]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
+  //topic done
+  const toggleTopicDone = async (topicId) => {
+    if (!loggedIn || completingTopic === topicId) return;
+    setCompletingTopic(topicId);
+    const wasDone = !!completed[topicId];
+
     setCompleted((prev) => ({
       ...prev,
-      [topicId]: true,
+      [topicId]: !wasDone,
     }));
 
     try {
-      // Try sending user info in the request body
-      const response = await api.post(
-        `/api/Progress/complete-topic/${topicId}`,
-      );
-
-      console.log("POST response:", response.status, response.data);
-
-      // After successful POST, manually add to localStorage as backup
-      const savedProgress = localStorage.getItem(
-        `completed_${roadmapId}_${user?.email}`,
-      );
-      const progressMap = savedProgress ? JSON.parse(savedProgress) : {};
-      progressMap[topicId] = true;
+      if (wasDone) {
+        await api.delete(`/api/Progress/complete-topic/${topicId}`);
+      } else {
+        await api.post(`/api/Progress/complete-topic/${topicId}`);
+      }
     } catch (err) {
-      console.error("Failed to complete topic:", err);
-      console.error("Error details:", err.response?.data);
-
-      // Rollback UI update on error
-      setCompleted((prev) => ({
-        ...prev,
-        [topicId]: false,
-      }));
-
-      alert("Failed to save progress. Please try again.");
+      console.error("toggle topic error", err);
+      // Rollback
+      setCompleted((prev) => ({ ...prev, [topicId]: wasDone }));
+    } finally {
+      setCompletingTopic(null);
     }
   };
 
-  // Totalprogress
+  //toggle bookmark
+  const toggleBookmark = async (resourceId) => {
+    if (!loggedIn || bookmarkLoading[resourceId]) return;
+
+    setBookmarkLoading((prev) => ({ ...prev, [resourceId]: true }));
+    const wasBookmarked = !!bookmarked[resourceId];
+
+    // Optimistic update
+    setBookmarked((prev) => ({ ...prev, [resourceId]: !wasBookmarked }));
+
+    try {
+      if (wasBookmarked) {
+        await api.delete(`/api/Bookmarks/${resourceId}`);
+      } else {
+        await api.post(`/api/Bookmarks/${resourceId}`);
+      }
+    } catch (err) {
+      console.error("bookmark toggle error", err);
+      // Rollback
+      setBookmarked((prev) => ({ ...prev, [resourceId]: wasBookmarked }));
+    } finally {
+      setBookmarkLoading((prev) => ({ ...prev, [resourceId]: false }));
+    }
+  };
+
+  //submit review
+  const handleSubmitReview = async () => {
+    if (!reviewRate) {
+      setReviewError("Please select a rating.");
+      return;
+    }
+    setReviewError(null);
+    setSubmittingReview(true);
+    try {
+      await api.post(`/api/Roadmap/${roadmapId}/reviews`, {
+        content: reviewContent,
+        rate: reviewRate,
+      });
+      setReviewSuccess(true);
+      setReviewContent("");
+      setReviewRate(0);
+      fetchReviews(); // refresh
+      setTimeout(() => setReviewSuccess(false), 3000);
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to submit review.";
+
+      setReviewError(msg);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  //values
 
   const totalTopics = levels.reduce(
     (n, l) => n + (l.topicResponses?.length || 0),
     0,
   );
 
-  const completedCount = Object.keys(completed).length;
-
+  const completedCount = Object.values(completed).filter(Boolean).length;
   const progress =
     totalTopics > 0 ? Math.round((completedCount / totalTopics) * 100) : 0;
 
-  // if (error || !roadmap) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-[#030712]">
-  //       <p className="text-red-400 text-lg">{error || "Roadmap not found."}</p>
-  //     </div>
-  //   );
-  // }
-  if (!roadmap) return null;
-
-  const toggleBookmark = (resId) => {
-    const next = { ...bookmarked, [resId]: !bookmarked[resId] };
-    setBookmarked(next);
+  const toggleTopic = (topicId) => {
+    setOpenTopics((prev) => ({ ...prev, [topicId]: !prev[topicId] }));
   };
 
-  //completedCount
+  const isTopicDone = (topic) => {
+    return completed[topic.topicId];
+  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p>Loading</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !roadmap) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>{error || "Roadmap not found"}</p>
+      </div>
+    );
+  }
+  //map
   return (
     <div>
       {/* Hero with track bg */}
       <div
         className="relative"
         style={{
-          backgroundImage: `url(${track?.trackIcon})`,
+          backgroundImage: `url(https://mindroad.runasp.net/${track?.trackIcon})`,
           backgroundSize: "cover",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/100 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/100 to-black/80" />
         <div className="relative z-10">
           <Navbar isLoggedIn={loggedIn} user={user} />
           <section className="py-20 px-10">
@@ -259,11 +314,16 @@ function RoadmapPage() {
             </div>
 
             {/* Rating */}
-            <div className="flex items-center font-semibold">
-              <Star size={16} className="fill-[#ffb900] mr-2 text-[#ffb900]" />
-              <h2 className="text-[#ffb900] mr-1">{avgRating ?? "—"}</h2>
-              <p className="text-gray-300">({reviews.length} reviews)</p>
-            </div>
+            {avgRating && (
+              <div className="flex items-center font-semibold mb-4">
+                <Star
+                  size={16}
+                  className="fill-[#ffb900] mr-2 text-[#ffb900]"
+                />
+                <h2 className="text-[#ffb900] mr-1">{avgRating}</h2>
+                <p className="text-gray-300">({reviews.length} reviews)</p>
+              </div>
+            )}
 
             <h1 className="text-5xl text-white mt-8 font-bold">
               {roadmap.roadmapName}
@@ -292,12 +352,14 @@ function RoadmapPage() {
             {loggedIn && totalTopics > 0 && (
               <div className="mt-6 max-w-sm">
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-300">Your progress</span>
+                  <span className="text-gray-300">
+                    Your progress — {completedCount}/{totalTopics} topics
+                  </span>
                   <span className="text-primary font-bold">{progress}%</span>
                 </div>
                 <div className="w-full bg-white/20 rounded-full h-2">
                   <div
-                    className="bg-primary h-2 rounded-full transition-all"
+                    className="bg-primary h-2 rounded-full transition-all duration-500"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -313,7 +375,7 @@ function RoadmapPage() {
         <div className="flex-1">
           {/* Tabs */}
           <div className="flex gap-8 border-b border-gray-200 mb-8">
-            {["overview", "resources"].map((tab) => (
+            {["overview", "resources", "reviews"].map((tab) => (
               <button
                 key={tab}
                 className={`px-3 pb-3 text-sm font-medium capitalize transition duration-300 ${
@@ -324,6 +386,11 @@ function RoadmapPage() {
                 onClick={() => setActiveTab(tab)}
               >
                 {tab}
+                {tab === "reviews" && reviews.length > 0 && (
+                  <span className="ml-1 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                    {reviews.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -331,83 +398,64 @@ function RoadmapPage() {
           {/* Overview tab */}
           {activeTab === "overview" && (
             <div>
-              <h2 className="text-2xl font-bold mb-5">What you'll learn</h2>
-              <div className="grid grid-cols-2 gap-3 mb-8">
-                {[
-                  "Build responsive UIs with HTML, CSS & Tailwind",
-                  "Create interactive SPAs with React & hooks",
-                  "Work with databases and ORMs",
-                  "Containerise apps with Docker",
-                  "Master JavaScript ES6+ and async programming",
-                  "Design and build REST APIs",
-                  "Implement JWT authentication and OAuth",
-                  "Deploy to cloud with CI/CD pipelines",
-                ].map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex gap-2 items-center text-gray-600"
-                  >
-                    <div className="w-4 h-4 rounded-full bg-[#10b981] flex-shrink-0" />
-                    <p className="text-sm">{item}</p>
+              {/* projects u will build */}
+              <div>
+                <h2 className="text-2xl font-bold mb-5 mt-8">
+                  Projects you'll build
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* 5 */}
+                  {[
+                    { num: "P1", name: "Portfolio Website" },
+                    { num: "P2", name: "Full-Stack Blog" },
+                    { num: "P3", name: "E-Commerce Platform" },
+                    { num: "P4", name: "Real-time Chat App" },
+                    { num: "P5", name: "SaaS Dashboard" },
+                  ].map((project) => (
+                    <div
+                      key={project.num}
+                      className="flex items-center gap-3 bg-100 rounded-lg px-4 py-3 bg-gray-50 max-w-sm"
+                    >
+                      <span className="bg-[#423ef7] text-white py-1 px-2 rounded-lg">
+                        {project.num}
+                      </span>
+                      <span className="text-gray-600">{project.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* this track includes */}
+              <div>
+                <h2 className="text-2xl font-bold mb-5 mt-8">
+                  This track includes
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2">
+                    <Play size={16} className="text-[#3947f8]" />
+                    <p className="text-gray-600">5h on-demand video</p>
                   </div>
-                ))}
-              </div>
-
-              {/* Skills */}
-              <h2 className="text-2xl font-bold mb-5">Skills covered</h2>
-              <div className="flex gap-3 flex-wrap mb-8">
-                {[
-                  "HTML/CSS",
-                  "JavaScript",
-                  "React",
-                  "Node.js",
-                  "PostgreSQL",
-                  "REST APIs",
-                  "Docker",
-                  "CI/CD",
-                ].map((skill) => (
-                  <p
-                    key={skill}
-                    className="bg-gray-100 text-gray-600 py-2 px-3 rounded-2xl text-sm"
-                  >
-                    {skill}
-                  </p>
-                ))}
-              </div>
-
-              {/* Reviews */}
-              {reviews.length > 0 && (
-                <div className="mt-10">
-                  <h2 className="text-2xl font-bold mb-5">
-                    Student Reviews{" "}
-                    <span className="ml-2 text-yellow-500 text-xl font-normal">
-                      ⭐ {avgRating}
-                    </span>
-                  </h2>
-                  <div className="flex flex-col gap-4">
-                    {reviews.slice(0, 4).map((review) => (
-                      <div
-                        key={review.revId}
-                        className="bg-gray-50 rounded-xl p-5 border border-gray-100"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <p className="font-semibold">
-                            {review.username || "Learner"}
-                          </p>
-                          <p className="text-yellow-500">
-                            {"⭐".repeat(review.rate)}
-                          </p>
-                        </div>
-                        {review.content && (
-                          <p className="text-gray-500 text-sm">
-                            {review.content}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-[#3947f8]" />
+                    <p className="text-gray-600">Lesson notes & resources</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Code size={16} className="text-[#3947f8]" />
+                    <p className="text-gray-600">18 hands-on projects </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className="text-[#3947f8]" />
+                    <p className="text-gray-600">Community forum access</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Award size={16} className="text-[#3947f8]" />
+                    <p className="text-gray-600">Certificate of completio</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap size={16} className="text-[#3947f8]" />
+                    <p className="text-gray-600">Lifetime access</p>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -423,11 +471,15 @@ function RoadmapPage() {
                     {level.levelName}
                   </h2>
                   {(level.topicResponses || []).map((topic) => {
+                    console.log("TOPIC ID:", topic.topicId);
+                    console.log("COMPLETED:", completed);
                     const topicId = topic.topicId;
                     const isOpen = !!openTopics[topicId];
                     const resources = Array.isArray(topic.resources)
                       ? topic.resources
                       : [];
+                    const done = isTopicDone(topic);
+                    const isCompleting = completingTopic === topicId;
                     return (
                       <div key={topicId} className="mb-3">
                         <div className="bg-gray-100 rounded-xl overflow-hidden">
@@ -435,48 +487,71 @@ function RoadmapPage() {
                             className="flex justify-between items-center cursor-pointer px-4 py-4"
                             onClick={() => toggleTopic(topicId)}
                           >
-                            <span className="font-semibold text-gray-800">
-                              {topic.topicName}
-                            </span>
-                            <div className="flex gap-3 items-center">
+                            <div className="flex items-center gap-3">
+                              {/* Complete checkbox */}
                               {loggedIn && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    toggleTopicDone(topic.topicId);
+                                    toggleTopicDone(topicId);
                                   }}
+                                  disabled={isCompleting}
                                   title={
-                                    isTopicDone(topic.topicId)
-                                      ? "Completed"
+                                    done
+                                      ? "Mark incomplete"
                                       : "Mark as complete"
                                   }
+                                  className="flex-shrink-0"
                                 >
-                                  {isTopicDone(topic.topicId) ? (
+                                  {isCompleting ? (
+                                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                  ) : done ? (
                                     <SquareCheck
                                       size={20}
-                                      className="fill-primary text-primary"
+                                      className="fill-primary text-white"
                                     />
                                   ) : (
                                     <Square
                                       size={20}
-                                      className="text-gray-400"
+                                      className="text-gray-400 hover:text-primary transition"
                                     />
                                   )}
                                 </button>
                               )}
+                              <span
+                                className={`font-semibold ${done ? "text-gray-400 line-through" : "text-gray-800"}`}
+                              >
+                                {topic.topicName}
+                              </span>
+                            </div>
+
+                            <div className="flex gap-3 items-center">
+                              {/* Discussion link */}
                               <Link
                                 to={`/tracks/${trackId}/${roadmapId}/${topicId}/comments`}
                                 onClick={(e) => e.stopPropagation()}
                                 title="Discussion"
                               >
                                 <MessageCircle
-                                  size={20}
+                                  size={18}
                                   className="text-gray-400 hover:text-primary transition"
                                 />
                               </Link>
+                              {/* Expand chevron */}
+                              {isOpen ? (
+                                <ChevronUp
+                                  size={18}
+                                  className="text-gray-400"
+                                />
+                              ) : (
+                                <ChevronDown
+                                  size={18}
+                                  className="text-gray-400"
+                                />
+                              )}
                             </div>
                           </div>
-
+                          {/* resourses list  */}
                           <div
                             className={`transition-all duration-300 ease-in-out overflow-hidden ${
                               isOpen
@@ -491,9 +566,13 @@ function RoadmapPage() {
                                 </p>
                               ) : (
                                 resources.map((res) => {
+                                  const resId = res.resourceId ?? res.resId;
+                                  const isBookmarked = !!bookmarked[resId];
+                                  const isBookmarkLoading =
+                                    !!bookmarkLoading[resId];
                                   return (
                                     <div
-                                      key={res.resourceId}
+                                      key={resId}
                                       className="flex justify-between items-center mb-3 mt-2"
                                     >
                                       <a
@@ -506,6 +585,11 @@ function RoadmapPage() {
                                         rel="noopener noreferrer"
                                         className="text-primary hover:underline text-sm flex items-center gap-2"
                                       >
+                                        {res.resourceType && (
+                                          <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded uppercase">
+                                            {res.resourceType}
+                                          </span>
+                                        )}
                                         {res.resourceName}
 
                                         {res.paid && (
@@ -514,46 +598,35 @@ function RoadmapPage() {
                                           </span>
                                         )}
                                       </a>
-
-                                      <div className="flex gap-3 items-center">
+                                      {/* bookmark */}
+                                      {loggedIn && (
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            toggleBookmark(res.resourceId);
+                                            toggleBookmark(resId);
                                           }}
+                                          disabled={isBookmarkLoading}
+                                          title={
+                                            isBookmarked
+                                              ? "Remove bookmark"
+                                              : "Bookmark"
+                                          }
+                                          className="ml-3 flex-shrink-0"
                                         >
-                                          <Bookmark
-                                            size={18}
-                                            className={
-                                              bookmarked[res.resourceId]
-                                                ? "fill-primary text-primary"
-                                                : "text-gray-400"
-                                            }
-                                          />
+                                          {isBookmarkLoading ? (
+                                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                          ) : (
+                                            <Bookmark
+                                              size={18}
+                                              className={
+                                                isBookmarked
+                                                  ? "fill-primary text-primary"
+                                                  : "text-gray-300 hover:text-primary transition"
+                                              }
+                                            />
+                                          )}
                                         </button>
-
-                                        {loggedIn && (
-                                          <button
-                                            hidden
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              toggleTopicDone(topic.topicId);
-                                            }}
-                                          >
-                                            {completed[topic.topicId] ? (
-                                              <SquareCheck
-                                                size={18}
-                                                className="text-primary fill-primary"
-                                              />
-                                            ) : (
-                                              <Square
-                                                size={18}
-                                                className="text-gray-400"
-                                              />
-                                            )}
-                                          </button>
-                                        )}
-                                      </div>
+                                      )}
                                     </div>
                                   );
                                 })
@@ -568,18 +641,135 @@ function RoadmapPage() {
               ))}
             </div>
           )}
+
+          {/* reviews tab */}
+          {activeTab === "reviews" && (
+            <div>
+              {/* Avg rating summary */}
+              {reviews.length > 0 && (
+                <div className="bg-gray-50 rounded-2xl p-6 mb-8 flex items-center gap-6">
+                  <div className="text-center">
+                    <p className="text-5xl font-bold text-gray-900">
+                      {avgRating}
+                    </p>
+                    <div className="flex gap-0.5 mt-1 justify-center">
+                      <StarRating
+                        initialRating={Math.round(avgRating)}
+                        readOnly
+                      />
+                    </div>
+                    <p className="text-gray-400 text-sm mt-1">
+                      {reviews.length} reviews
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Review cards */}
+              <div className="flex flex-col gap-4 mb-10">
+                {reviews.length === 0 && (
+                  <p className="text-gray-400">No reviews yet. Be the first!</p>
+                )}
+                {reviews.map((review) => (
+                  <div
+                    key={review.revId}
+                    className="bg-gray-50 rounded-xl p-5 border border-gray-100"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                        {(review.username || "U")[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">
+                          {review.username || "Learner"}
+                        </p>
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              size={12}
+                              className={
+                                s <= review.rate
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-gray-200"
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {review.content && (
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        {review.content}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Add review form (logged in users only) */}
+              {loggedIn ? (
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <h3 className="font-bold text-lg mb-4">Leave a Review</h3>
+
+                  {/* Star picker */}
+                  <div className="mb-4">
+                    <StarRating
+                      initialRating={reviewRate}
+                      onRate={(value) => setReviewRate(value)}
+                    />
+                  </div>
+
+                  <textarea
+                    value={reviewContent}
+                    onChange={(e) => setReviewContent(e.target.value)}
+                    placeholder="Share your experience with this roadmap..."
+                    rows={4}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary resize-none mb-4"
+                  />
+
+                  {reviewError && (
+                    <p className="text-red-500 text-sm mb-3">{reviewError}</p>
+                  )}
+                  {reviewSuccess && (
+                    <p className="text-green-500 text-sm mb-3">
+                      Review submitted! Thank you.
+                    </p>
+                  )}
+
+                  <button
+                    onClick={handleSubmitReview}
+                    disabled={submittingReview}
+                    className="bg-primary text-white font-semibold px-6 py-2.5 rounded-xl hover:opacity-90 transition disabled:opacity-60"
+                  >
+                    {submittingReview ? "Submitting..." : "Submit Review"}
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 text-center">
+                  <p className="text-gray-500 mb-3">
+                    Sign in to leave a review
+                  </p>
+                  <Link
+                    to="/signin"
+                    className="bg-primary text-white font-semibold px-6 py-2.5 rounded-xl hover:opacity-90 transition"
+                  >
+                    Sign In
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right sidebar */}
         <div className="w-72 flex-shrink-0">
           <div className="rounded-2xl shadow-xl overflow-hidden sticky top-6 border border-gray-100">
-            {track?.trackIcon && (
-              <img
-                src={Container}
-                alt={track?.trackName}
-                className="w-full h-40 object-cover"
-              />
-            )}
+            <img
+              src={Container}
+              alt={track?.trackName}
+              className="w-full h-40 object-cover"
+            />
             <div className="p-5">
               <h1 className="text-2xl font-bold mb-1">
                 Free{" "}
@@ -591,29 +781,39 @@ function RoadmapPage() {
                 Pro features from $19/mo
               </p>
 
-              <div className="flex flex-col gap-3 mb-5">
-                {loggedIn ? (
-                  <Link
-                    to={`/tracks/${trackId}/${roadmapId}/learn`}
-                    className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl text-center hover:opacity-90 transition"
-                  >
-                    Continue Learning →
-                  </Link>
-                ) : (
-                  <Link
-                    to="/signup"
-                    className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl text-center hover:opacity-90 transition"
-                  >
-                    Get Started for Free →
-                  </Link>
-                )}
+              {loggedIn ? (
                 <Link
-                  to="/pricing"
-                  className="w-full py-3 px-4 bg-gray-50 text-gray-700 font-semibold rounded-xl text-center hover:bg-gray-100 transition border border-gray-200 text-sm"
+                  to={`/tracks/${trackId}/${roadmapId}/learn`}
+                  className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl text-center hover:opacity-90 transition mb-4 block"
                 >
-                  View Pro Plan
+                  Continue Learning →
                 </Link>
-              </div>
+              ) : (
+                <Link
+                  to="/signup"
+                  className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-xl text-center hover:opacity-90 transition block mb-4"
+                >
+                  Get Started for Free →
+                </Link>
+              )}
+
+              {/* progress small  */}
+              {loggedIn && totalTopics > 0 && (
+                <div className="mb-4 bg-gray-50 rounded-xl p-3">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>
+                      {completedCount}/{totalTopics} topics done
+                    </span>
+                    <span className="font-bold text-primary">{progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all duration-500"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-sm text-gray-600">

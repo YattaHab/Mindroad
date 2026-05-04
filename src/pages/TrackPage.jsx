@@ -60,15 +60,12 @@ function TrackPage() {
     if (!loggedIn) return;
     setCheckingEnrollment(true);
     api
-      .get(`/api/Track/${trackId}/enroll`)
-      .then(() => {
-        setIsEnrolled(true);
+      .get(`/api/Track/${trackId}/enrollment-status`)
+      .then((res) => {
+        setIsEnrolled(res.data?.isEnrolled ?? res.data === true);
       })
-      .catch((err) => {
-        const status = err.response?.status;
-        if (status === 404 || status === 400) {
-          setIsEnrolled(false);
-        }
+      .catch(() => {
+        setIsEnrolled(false);
       })
       .finally(() => setCheckingEnrollment(false));
   }, [loggedIn, trackId]);
@@ -89,7 +86,6 @@ function TrackPage() {
       if (status === 409) {
         setIsEnrolled(true);
       } else {
-        console.error("enroll Error", err);
         setEnrollError(err.response?.data?.message || "failed to enroll");
       }
     } finally {
@@ -105,11 +101,11 @@ function TrackPage() {
       <div
         className="relative"
         style={{
-          backgroundImage: `url(${track.trackIcon})`,
+          backgroundImage: `url(https://mindroad.runasp.net/${track.trackIcon})`,
           backgroundSize: "cover",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/100 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/100 to-black/80" />
         <div className="relative z-10">
           <Navbar isLoggedIn={loggedIn} user={user} />
           {/* hero */}
@@ -195,7 +191,7 @@ function TrackPage() {
           {/* overview */}
           {activeTab === "overview" && (
             <div>
-              {/* 1 */}
+              {/* what u will learn */}
               <h2 className="text-2xl font-bold mb-5">What you'll learn</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex gap-1 items-center text-gray-600 mb-3">
@@ -231,7 +227,7 @@ function TrackPage() {
                   <p>Deploy to AWS or Vercel with CI/CD pipelines</p>
                 </div>
               </div>
-              {/* - */}
+              {/* skills covered */}
               <div>
                 <h2 className="text-2xl font-bold mb-5 mt-8">Skills covered</h2>
                 <div className="flex gap-3 flex-wrap">
@@ -254,65 +250,6 @@ function TrackPage() {
                   ))}
                 </div>
               </div>
-              {/* - */}
-              <div>
-                <h2 className="text-2xl font-bold mb-5 mt-8">
-                  Projects you'll build
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* 5 */}
-                  {[
-                    { num: "P1", name: "Portfolio Website" },
-                    { num: "P2", name: "Full-Stack Blog" },
-                    { num: "P3", name: "E-Commerce Platform" },
-                    { num: "P4", name: "Real-time Chat App" },
-                    { num: "P5", name: "SaaS Dashboard" },
-                  ].map((project) => (
-                    <div
-                      key={project.num}
-                      className="flex items-center gap-3 bg-100 rounded-lg px-4 py-3 bg-gray-50 max-w-sm"
-                    >
-                      <span className="bg-[#423ef7] text-white py-1 px-2 rounded-lg">
-                        {project.num}
-                      </span>
-                      <span className="text-gray-600">{project.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* d */}
-              <div>
-                <h2 className="text-2xl font-bold mb-5 mt-8">
-                  This track includes
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2">
-                    <Play size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">5h on-demand video</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Lesson notes & resources</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Code size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">18 hands-on projects </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Community forum access</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Award size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Certificate of completio</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap size={16} className="text-[#3947f8]" />
-                    <p className="text-gray-600">Lifetime access</p>
-                  </div>
-                </div>
-              </div>
-              {/* d */}
             </div>
           )}
           {/* done */}
@@ -334,6 +271,9 @@ function TrackPage() {
                   </button>
                 </div>
               )}
+              {enrollError && (
+                <p className="text-red-500 text-sm mt-2">{enrollError}</p>
+              )}
               {/* end  */}
               {filteredRoadmaps.map((roadmap) => (
                 <Link
@@ -343,7 +283,7 @@ function TrackPage() {
                 >
                   <div className="flex gap-4 items-center">
                     <img
-                      src={track.trackIcon}
+                      src={`https://mindroad.runasp.net/${track.trackIcon}`}
                       alt={roadmap.roadmapName}
                       className="w-44 h-28 object-cover"
                     />
